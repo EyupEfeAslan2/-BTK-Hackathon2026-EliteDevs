@@ -10,6 +10,7 @@ from core.gemini import get_gemini
 from agents.data_agent import DataAgent
 from agents.analysis_agent import AnalysisAgent
 from agents.risk_agent import RiskAgent
+from agents.compliance_agent import ComplianceAgent
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ class FinancialAnalysisOrchestrator:
         self.data_agent = DataAgent()
         self.analysis_agent = AnalysisAgent()
         self.risk_agent = RiskAgent()
+        self.compliance_agent = ComplianceAgent()
         self.crew = None
         self.validate_setup()
     
@@ -31,19 +33,23 @@ class FinancialAnalysisOrchestrator:
     def create_analysis_crew(self, symbols: List[str], analysis_period: str = "1y") -> Crew:
         data_task = self.data_agent.create_data_collection_task(symbols, analysis_period)
         
+        compliance_task = self.compliance_agent.create_compliance_analysis_task({"symbols": symbols})
+        compliance_task.context = [data_task]
+        
         analysis_task = self.analysis_agent.create_analysis_task({"symbols": symbols})
         analysis_task.context = [data_task]
         
         risk_task = self.risk_agent.create_risk_assessment_task({"symbols": symbols})
-        risk_task.context = [data_task, analysis_task]
+        risk_task.context = [data_task, analysis_task, compliance_task]
         
         crew = Crew(
             agents=[
                 self.data_agent.agent,
+                self.compliance_agent.agent,
                 self.analysis_agent.agent,
                 self.risk_agent.agent
             ],
-            tasks=[data_task, analysis_task, risk_task],
+            tasks=[data_task, compliance_task, analysis_task, risk_task],
             process=Process.sequential,
             verbose=False
         )
@@ -83,10 +89,17 @@ class FinancialAnalysisOrchestrator:
         
         result = crew.kickoff()
         
+        # Also ensure compliance_and_legal is available at the root level for consistency
+        compliance_results = self.compliance_agent.execute_compliance_analysis(symbols)
+        
         return {
             "symbols": symbols,
             "analysis_period": analysis_period,
             "crew_result": self.parse_crew_result(result),
+            "compliance_and_legal": {
+                "veto_flag": compliance_results.get("veto_flag", False),
+                "legal_summary": compliance_results.get("legal_summary", "No data")
+            },
             "method": "crew_orchestration",
             "status": "success",
             "timestamp": datetime.now().isoformat()
@@ -122,6 +135,16 @@ class FinancialAnalysisOrchestrator:
                 "status": "failed",
                 "timestamp": datetime.now().isoformat()
             }
+            
+        logger.info("Step 4: Conducting compliance and legal analysis...")
+        compliance_results = self.compliance_agent.execute_compliance_analysis(symbols)
+        
+        if "error" in compliance_results:
+            logger.warning(f"Compliance analysis failed: {compliance_results['error']}")
+            compliance_results = {
+                "veto_flag": False,
+                "legal_summary": "Compliance analysis failed or unavailable."
+            }
         
         final_results = {
             "symbols": symbols,
@@ -129,6 +152,10 @@ class FinancialAnalysisOrchestrator:
             "data_collection": collected_data,
             "analysis": analysis_results,
             "risk_assessment": risk_results,
+            "compliance_and_legal": {
+                "veto_flag": compliance_results.get("veto_flag", False),
+                "legal_summary": compliance_results.get("legal_summary", "No data")
+            },
             "executive_summary": self.generate_executive_summary(
                 symbols, collected_data, analysis_results, risk_results
             ),
@@ -292,6 +319,8 @@ class FinancialAnalysisOrchestrator:
             risk_metrics = self.risk_agent.calculate_risk_metrics([symbol], 
                                                                 stock_data.get("stocks", {}))
             
+            compliance_results = self.compliance_agent.execute_compliance_analysis([symbol])
+            
             return {
                 "symbol": symbol,
                 "quick_analysis": {
@@ -302,6 +331,10 @@ class FinancialAnalysisOrchestrator:
                         risk_metrics.get("risk_metrics", {}).get(symbol, {}).get("risk_score", 50)
                     ),
                     "news_sentiment": news_data.get("market_sentiment", {}).get("symbol_sentiments", {}).get(symbol, {}).get("sentiment_label")
+                },
+                "compliance_and_legal": {
+                    "veto_flag": compliance_results.get("veto_flag", False),
+                    "legal_summary": compliance_results.get("legal_summary", "No data")
                 },
                 "status": "success",
                 "timestamp": datetime.now().isoformat()
