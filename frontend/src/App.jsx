@@ -1,269 +1,157 @@
 import React, { useState } from 'react';
-import BorrowerApplicationForm from './components/BorrowerApplicationForm';
-import CreditScorecard from './components/CreditScorecard';
-import FinancialMetrics from './components/FinancialMetrics';
-import DefaultRiskAssessment from './components/DefaultRiskAssessment';
-import ApprovalRecommendation from './components/ApprovalRecommendation';
-import DocumentChecklist from './components/DocumentChecklist';
-import AgentReviewBoard from './components/AgentReviewBoard';
-import ApplicationOutcomeCard from './components/ApplicationOutcomeCard';
-import ErrorMessage from './components/ErrorMessage';
-import { assessCredit } from './api/client';
+import axios from 'axios';
+import { FiSearch, FiCpu } from 'react-icons/fi';
+import TerminalLoading from './components/TerminalLoading';
+import Dashboard from './components/Dashboard';
 
 import './App.css';
 
-const MIN_AGENT_REVIEW_MS = 6400;
-
-function formatErrorDetail(err) {
-  const d = err.response?.data?.detail;
-  if (typeof d === 'string') return d;
-  if (Array.isArray(d)) {
-    return d
-      .map((item) => (typeof item === 'string' ? item : item?.msg || JSON.stringify(item)))
-      .filter(Boolean)
-      .join(' · ');
-  }
-  if (d && typeof d === 'object') {
-    try {
-      return JSON.stringify(d);
-    } catch {
-      return err.message;
-    }
-  }
-  return err.message;
-}
-
 function App() {
-  const [stage, setStage] = useState('form'); // 'form' or 'results'
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [reviewContext, setReviewContext] = useState(null);
+  const [symbolInput, setSymbolInput] = useState('');
+  const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'error'
+  const [data, setData] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleApplicationSubmit = async (formData) => {
-    setLoading(true);
-    setError(null);
-    setResults(null);
-    setReviewContext({
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      loanAmount: formData.loanAmount,
-    });
+  // We track two sub-states during 'analyzing' to wait for BOTH API and Terminal Animation to finish
+  const [apiDone, setApiDone] = useState(false);
+  const [terminalDone, setTerminalDone] = useState(false);
 
-    const started = Date.now();
+  const handleAnalyze = async (e) => {
+    e.preventDefault();
+    if (!symbolInput.trim()) return;
+
+    setAppState('analyzing');
+    setData(null);
+    setErrorMsg('');
+    setApiDone(false);
+    setTerminalDone(false);
+
+    const symbol = symbolInput.toUpperCase().trim();
+
     try {
-      const response = await assessCredit(formData);
-      const elapsed = Date.now() - started;
-      const pad = Math.max(0, MIN_AGENT_REVIEW_MS - elapsed);
-      if (pad > 0) {
-        await new Promise((resolve) => setTimeout(resolve, pad));
-      }
-      setResults(response);
-      setStage('results');
+      const response = await axios.post('http://localhost:3030/api/v1/analyze', {
+        symbols: [symbol],
+        period: "1mo"
+      });
+      setData(response.data);
+      setApiDone(true);
     } catch (err) {
-      setError(
-        formatErrorDetail(err) ||
-          "Kredi değerlendirmesi sırasında bir hata oluştu. Lütfen backend'in çalıştığından emin olun."
-      );
-    } finally {
-      setLoading(false);
-      setReviewContext(null);
+      console.error(err);
+      setErrorMsg(err.response?.data?.detail || err.message || "Failed to connect to the AI Gateway.");
+      setAppState('error');
     }
   };
 
-  const handleReset = () => {
-    setStage('form');
-    setResults(null);
-    setError(null);
+  const handleTerminalComplete = () => {
+    setTerminalDone(true);
   };
+
+  // When both terminal animation and API are done, transition to results
+  React.useEffect(() => {
+    if (appState === 'analyzing' && apiDone && terminalDone) {
+      setAppState('results');
+    }
+  }, [appState, apiDone, terminalDone]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-banking-ink via-slate-950 to-blue-950">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 h-[28rem] w-[28rem] rounded-full bg-blue-600/15 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-[26rem] w-[26rem] rounded-full bg-indigo-700/10 blur-3xl" />
-        <div className="absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-sky-500/5 blur-3xl" />
-      </div>
-
-      {/* Header */}
-      <header className="relative border-b border-blue-500/20 bg-gradient-to-r from-slate-950 via-blue-950 to-slate-950 py-10 text-white shadow-2xl shadow-blue-950/30 md:py-12">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-2xl shadow-lg shadow-blue-900/40">
-                
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300/90">kredi değerlendirme</p>
-                <h1 className="mt-1 bg-gradient-to-r from-sky-200 via-white to-blue-200 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
-                  EliteDevs
-                </h1>
-              </div>
+    <div className="min-h-screen bg-[#050508] text-slate-300 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+      
+      {/* Top Navigation / Search Bar */}
+      <nav className="sticky top-0 z-50 border-b border-emerald-500/20 bg-[#0a0a0f]/80 backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          
+          {/* Logo / Brand */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded border border-emerald-500/40 bg-emerald-950/50 flex items-center justify-center cyber-glow">
+              <FiCpu className="text-emerald-400 text-xl" />
             </div>
-            <div className="rounded-2xl border border-white/10 bg-slate-900/50 px-4 py-3 text-sm text-slate-300 backdrop-blur-md">
+            <div>
+              <h1 className="text-xl font-bold tracking-widest bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent font-mono">
+                SOC_ORACLE
+              </h1>
+              <p className="text-[10px] uppercase tracking-widest text-emerald-500/60 font-mono">
+                B2B Financial Risk Gateway
+              </p>
             </div>
           </div>
+
+          {/* Search Form */}
+          <form onSubmit={handleAnalyze} className="w-full md:w-auto relative group">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiSearch className="text-emerald-500/50 group-focus-within:text-emerald-400 transition-colors" />
+            </div>
+            <input
+              type="text"
+              className="block w-full md:w-80 pl-10 pr-24 py-2.5 bg-[#0b0f19] border border-emerald-500/30 rounded-lg text-emerald-50 font-mono focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all placeholder:text-slate-600 focus:outline-none focus:cyber-glow"
+              placeholder="ENTER SYMBOL (e.g. AAPL)"
+              value={symbolInput}
+              onChange={(e) => setSymbolInput(e.target.value)}
+              disabled={appState === 'analyzing'}
+            />
+            <button
+              type="submit"
+              disabled={appState === 'analyzing' || !symbolInput.trim()}
+              className="absolute inset-y-1 right-1 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-md text-xs font-mono font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              ANALYZE
+            </button>
+          </form>
+
         </div>
-      </header>
+      </nav>
 
-      {/* Main Content */}
-      <main className="relative z-10 mx-auto max-w-7xl px-6 py-10 md:py-12">
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 animate-fade-in">
-            <ErrorMessage message={error} onDismiss={() => setError(null)} />
-          </div>
-        )}
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto px-6 py-12 relative">
+        
+        {/* Background Decorative Elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-1/4 -left-64 w-[500px] h-[500px] bg-emerald-600/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-1/4 -right-64 w-[500px] h-[500px] bg-cyan-600/5 rounded-full blur-[120px]" />
+        </div>
 
-        {/* Ajan inceleme panosu (statik spinner yerine) */}
-        {loading && (
-          <div className="mb-10 animate-fade-in">
-            <AgentReviewBoard active={loading} context={reviewContext} />
-          </div>
-        )}
-
-        {/* Form Stage */}
-        {stage === 'form' && !loading && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Intro Card */}
-            <div className="group relative overflow-hidden rounded-2xl border border-blue-500/20 bg-slate-900/45 p-8 shadow-2xl shadow-blue-950/20 backdrop-blur-xl transition-all duration-300 hover:border-sky-400/35">
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-blue-600/10 via-transparent to-indigo-600/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              <div className="relative z-10">
-                <h2 className="mb-3 bg-gradient-to-r from-sky-200 to-white bg-clip-text text-3xl font-bold text-transparent">
-                  Kredi Başvurunuz
-                </h2>
-                <p className="text-lg leading-relaxed text-slate-200">
-                  Adımları tamamladığınızda başvuru sunucuya gider; ekranda veri, risk ve skor ajanlarının sıralı çıktıları
-                  gösterilir. En sonda karar ve gerekçeler listelenir.
-                </p>
+        <div className="relative z-10">
+          {appState === 'idle' && (
+            <div className="h-[60vh] flex flex-col items-center justify-center text-center animate-fade-in">
+              <div className="mb-6 p-4 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                <FiCpu className="text-emerald-500/50 text-6xl" />
               </div>
+              <h2 className="text-3xl font-mono text-emerald-50 mb-4 tracking-tight">
+                AWAITING TARGET INPUT
+              </h2>
+              <p className="max-w-md text-slate-500 font-mono text-sm leading-relaxed">
+                Enter a financial ticker symbol above to initialize multi-agent risk assessment and compliance scanning protocol.
+              </p>
             </div>
+          )}
 
-            {/* Form */}
-            <BorrowerApplicationForm onSubmit={handleApplicationSubmit} isLoading={loading} />
-
-            {/* Feature Cards */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-sky-400/30 hover:bg-slate-900/60">
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-600/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <div className="relative z-10">
-                  <div className="mb-3 text-3xl transition-transform duration-300 group-hover:scale-110">⚡</div>
-                  <h3 className="mb-2 text-lg font-bold text-white">Hızlı</h3>
-                  <p className="text-sm text-slate-300">
-                    Değerlendirme uçtan uca otomatik; ajan panosu süreci görünür kılar.
-                  </p>
-                </div>
-              </div>
-
-              <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-sky-400/30 hover:bg-slate-900/60">
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-600/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <div className="relative z-10">
-                  <div className="mb-3 text-3xl transition-transform duration-300 group-hover:scale-110">🔒</div>
-                  <h3 className="mb-2 text-lg font-bold text-white">Güvenli</h3>
-                  <p className="text-sm text-slate-300">
-                    .
-                  </p>
-                </div>
-              </div>
-
-              <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-slate-900/40 p-6 shadow-xl backdrop-blur-xl transition-all duration-300 hover:border-sky-400/30 hover:bg-slate-900/60">
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-500/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                <div className="relative z-10">
-                  <div className="mb-3 text-3xl transition-transform duration-300 group-hover:scale-110">🤖</div>
-                  <h3 className="mb-2 text-lg font-bold text-white">Akıllı</h3>
-                  <p className="text-sm text-slate-300">
-                    Skor, DTI ve likidite sinyalleri birlikte değerlendirilir.
-                  </p>
-                </div>
-              </div>
+          {appState === 'analyzing' && (
+            <div className="mt-8">
+              <TerminalLoading onComplete={handleTerminalComplete} />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Results Stage */}
-        {stage === 'results' && results && !loading && (
-          <div className="space-y-8 animate-fade-in">
-            {/* Results Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="mb-2 bg-gradient-to-r from-sky-200 via-white to-blue-200 bg-clip-text text-3xl font-bold text-transparent md:text-4xl">
-                  Değerlendirme Sonuçları
-                </h2>
-                <p className="text-slate-300">
-                  {results.applicant_name} adına yapılan detaylı analiz
-                </p>
-              </div>
-              <button
-                onClick={handleReset}
-                className="rounded-xl border border-white/15 bg-slate-900/50 px-8 py-3 font-semibold text-white backdrop-blur-xl transition-all duration-300 hover:border-sky-400/40 hover:bg-slate-900/80"
+          {appState === 'results' && data && (
+            <Dashboard data={data} />
+          )}
+
+          {appState === 'error' && (
+            <div className="max-w-2xl mx-auto mt-12 p-6 rounded-lg border border-red-500/30 bg-red-950/20 cyber-glow-red animate-fade-in">
+              <h3 className="text-red-500 font-mono font-bold text-lg mb-2 flex items-center gap-2">
+                <span className="text-2xl">⚠</span> CRITICAL EXCEPTION
+              </h3>
+              <p className="text-slate-300 font-mono text-sm">
+                {errorMsg}
+              </p>
+              <button 
+                onClick={() => setAppState('idle')}
+                className="mt-6 px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded font-mono text-sm transition-colors"
               >
-                ← Yeni Başvuru
+                ACKNOWLEDGE & RESET
               </button>
             </div>
-
-            <ApplicationOutcomeCard
-              explanation={results.explanation}
-              agentDeliberation={results.agent_deliberation}
-              decision={results.decision}
-            />
-
-            {/* Main Decision */}
-            {results.decision && (
-              <ApprovalRecommendation
-                decision={results.decision}
-                confidenceScore={results.confidence_score || 85}
-                reasons={results.decision_reasons}
-                suggestedTerms={results.suggested_terms}
-                complianceNotes={results.compliance_notes}
-              />
-            )}
-
-            {/* Credit Scorecard */}
-            {results.credit_score !== undefined && (
-              <CreditScorecard
-                creditScore={results.credit_score}
-                factors={results.credit_factors}
-                creditHistory={results.credit_history}
-                numAccounts={results.num_credit_accounts}
-              />
-            )}
-
-            {/* Financial Metrics */}
-            {results.monthly_income !== undefined && (
-              <FinancialMetrics
-                monthlyIncome={results.monthly_income}
-                totalDebts={results.total_existing_debts}
-                loanAmount={results.requested_loan_amount}
-                savingsAmount={results.savings_amount}
-              />
-            )}
-
-            {/* Risk Assessment */}
-            {results.default_probability !== undefined && (
-              <DefaultRiskAssessment
-                defaultProbability={results.default_probability}
-                riskFactors={results.risk_factors}
-                creditScore={results.credit_score}
-                dtiRatio={
-                  results.monthly_income > 0
-                    ? ((results.total_existing_debts + results.monthly_loan_payment) / results.monthly_income) * 100
-                    : 0
-                }
-              />
-            )}
-
-            {/* Document Checklist */}
-            <DocumentChecklist requiredDocuments={results.required_documents} />
-          </div>
-        )}
+          )}
+        </div>
       </main>
-
-      {/* Footer */}
-      <footer className="relative mt-20 border-t border-blue-500/15 bg-gradient-to-t from-slate-950/80 to-transparent py-8 text-center text-slate-500 backdrop-blur-sm">
-        <p className="font-medium text-slate-400">© 2026 EliteDevs — BTK Hackathon 2026</p>
-        <p className="mt-1 text-xs text-slate-500">Demo değerlendirme: gerçek hukuki / kredi taahhüdü oluşturmaz.</p>
-      </footer>
     </div>
   );
 }
