@@ -1,0 +1,48 @@
+/* Banking Color Palette */
+:root {
+  --banking-navy: #1e3a5f;
+  --banking-slate: #334155;
+  --banking-teal: #14b8a6;
+  --banking-red: #ef4444;
+  --banking-amber: #f59e0b;
+  --banking-green: #10b981;
+  --banking-light: #f8fafc;
+  --banking-border: #e2e8f0;
+}
+
+/* Main Container */
+.app-container {
+  min-height: 100vh;
+  background-color: var(--banking-light);
+}
+
+/* Card Styling */
+.card-shadow {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.card-shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Glass Effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.5);
+}
+
+/* Gauge Animation */
+@keyframes gaugeFlow {
+  from {
+    stroke-dashoffset: 552;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.gauge-circle {
+  animation: gaugeFlow 2s ease-out forwards;
+}
+
