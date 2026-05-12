@@ -36,10 +36,10 @@ class TechnicalAnalysisTool:
             
             indicators = {}
             
-            indicators["moving_averages"] = self.calculate_moving_averages(hist_data)
-            indicators["rsi"] = self.calculate_rsi(hist_data)
-            indicators["macd"] = self.calculate_macd(hist_data)
-            indicators["bollinger_bands"] = self.calculate_bollinger_bands(hist_data)
+            indicators["free_cash_flow_proxies"] = self.calculate_free_cash_flow_proxies(hist_data)
+            indicators["debt_to_equity_proxy"] = self.calculate_debt_to_equity_proxy(hist_data)
+            indicators["liquidity_proxy"] = self.calculate_liquidity_proxy(hist_data)
+            indicators["dscr_proxy"] = self.calculate_dscr_proxy(hist_data)
             indicators["support_resistance"] = self.find_support_resistance(hist_data)
             indicators["volume_analysis"] = self.analyze_volume(hist_data)
             signals = self.generate_signals(hist_data, indicators)
@@ -57,7 +57,7 @@ class TechnicalAnalysisTool:
             logger.error(f"Error in technical analysis for {symbol}: {str(e)}")
             return {"error": f"Technical analysis failed: {str(e)}"}
     
-    def calculate_moving_averages(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def calculate_free_cash_flow_proxies(self, df: pd.DataFrame) -> Dict[str, Any]:
         close_prices = df['Close']
         
         ma_data = {
@@ -72,20 +72,20 @@ class TechnicalAnalysisTool:
         
         signals = []
         if ma_data["sma_20"] and current_price > ma_data["sma_20"]:
-            signals.append("Price above 20-day SMA (bullish)")
+            signals.append("Price above 20-day SMA (LOW DEFAULT RISK)")
         elif ma_data["sma_20"] and current_price < ma_data["sma_20"]:
-            signals.append("Price below 20-day SMA (bearish)")
+            signals.append("Price below 20-day SMA (HIGH DEFAULT RISK)")
         
         if ma_data["sma_50"] and ma_data["sma_200"]:
             if ma_data["sma_50"] > ma_data["sma_200"]:
-                signals.append("Golden Cross: 50-day SMA above 200-day SMA (bullish)")
+                signals.append("Golden Cross: 50-day SMA above 200-day SMA (LOW DEFAULT RISK)")
             else:
-                signals.append("Death Cross: 50-day SMA below 200-day SMA (bearish)")
+                signals.append("Death Cross: 50-day SMA below 200-day SMA (HIGH DEFAULT RISK)")
         
         ma_data["signals"] = signals
         return ma_data
     
-    def calculate_rsi(self, df: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+    def calculate_debt_to_equity_proxy(self, df: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
         close_prices = df['Close']
         delta = close_prices.diff()
         
@@ -99,19 +99,19 @@ class TechnicalAnalysisTool:
         
         signals = []
         if current_rsi > 70:
-            signals.append("RSI indicates overbought condition")
+            signals.append("Proxy indicates HIGH DEBT CONCERN condition")
         elif current_rsi < 30:
-            signals.append("RSI indicates oversold condition")
+            signals.append("Proxy indicates STRONG POSITION condition")
         else:
-            signals.append("RSI in neutral range")
+            signals.append("Proxy in neutral range")
         
         return {
-            "current_rsi": current_rsi,
+            "current_value": current_rsi,
             "signals": signals,
-            "interpretation": "overbought" if current_rsi > 70 else "oversold" if current_rsi < 30 else "neutral"
+            "interpretation": "high debt concern" if current_rsi > 70 else "strong position" if current_rsi < 30 else "neutral"
         }
     
-    def calculate_macd(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def calculate_liquidity_proxy(self, df: pd.DataFrame) -> Dict[str, Any]:
         close_prices = df['Close']
         
         ema_12 = close_prices.ewm(span=12).mean()
@@ -127,9 +127,9 @@ class TechnicalAnalysisTool:
         
         signals = []
         if current_macd > current_signal:
-            signals.append("MACD above signal line (bullish)")
+            signals.append("Proxy above signal line (LOW DEFAULT RISK)")
         else:
-            signals.append("MACD below signal line (bearish)")
+            signals.append("Proxy below signal line (HIGH DEFAULT RISK)")
         
         if len(histogram) > 1:
             if current_histogram > self.convert_to_native_type(histogram.iloc[-2]):
@@ -144,7 +144,7 @@ class TechnicalAnalysisTool:
             "signals": signals
         }
     
-    def calculate_bollinger_bands(self, df: pd.DataFrame, period: int = 20, std_dev: int = 2) -> Dict[str, Any]:
+    def calculate_dscr_proxy(self, df: pd.DataFrame, period: int = 20, std_dev: int = 2) -> Dict[str, Any]:
         close_prices = df['Close']
         
         sma = close_prices.rolling(window=period).mean()
@@ -220,9 +220,9 @@ class TechnicalAnalysisTool:
         if volume_ratio > 1.5:
             signals.append("High volume activity")
             if price_change > 0:
-                signals.append("High volume with price increase (bullish)")
+                signals.append("High volume with price increase (LOW DEFAULT RISK)")
             else:
-                signals.append("High volume with price decrease (bearish)")
+                signals.append("High volume with price decrease (HIGH DEFAULT RISK)")
         elif volume_ratio < 0.5:
             signals.append("Low volume activity")
         
@@ -241,16 +241,16 @@ class TechnicalAnalysisTool:
             if "signals" in indicator_data:
                 for signal in indicator_data["signals"]:
                     signal_lower = signal.lower()
-                    if any(word in signal_lower for word in ["bullish", "above", "increasing", "oversold"]):
+                    if any(word in signal_lower for word in ["low default risk", "above", "increasing", "strong position"]):
                         bullish_signals += 1
-                    elif any(word in signal_lower for word in ["bearish", "below", "decreasing", "overbought"]):
+                    elif any(word in signal_lower for word in ["high default risk", "below", "decreasing", "high debt concern"]):
                         bearish_signals += 1
         
         if bullish_signals > bearish_signals:
-            overall_signal = "BULLISH"
+            overall_signal = "LOW DEFAULT RISK"
             confidence = min(bullish_signals / (bullish_signals + bearish_signals), 1.0)
         elif bearish_signals > bullish_signals:
-            overall_signal = "BEARISH"
+            overall_signal = "HIGH DEFAULT RISK"
             confidence = min(bearish_signals / (bullish_signals + bearish_signals), 1.0)
         else:
             overall_signal = "NEUTRAL"
@@ -259,22 +259,22 @@ class TechnicalAnalysisTool:
         return {
             "overall_signal": overall_signal,
             "confidence": self.convert_to_native_type(confidence),
-            "bullish_indicators": bullish_signals,
-            "bearish_indicators": bearish_signals,
+            "low_risk_indicators": bullish_signals,
+            "high_risk_indicators": bearish_signals,
             "recommendation": self.get_recommendation(overall_signal, confidence)
         }
     
     def get_recommendation(self, signal: str, confidence: float) -> str:
-        if signal == "BULLISH" and confidence > 0.7:
-            return "STRONG BUY"
-        elif signal == "BULLISH" and confidence > 0.6:
-            return "BUY"
-        elif signal == "BEARISH" and confidence > 0.7:
-            return "STRONG SELL"
-        elif signal == "BEARISH" and confidence > 0.6:
-            return "SELL"
+        if signal == "LOW DEFAULT RISK" and confidence > 0.7:
+            return "APPROVE"
+        elif signal == "LOW DEFAULT RISK" and confidence > 0.6:
+            return "APPROVE"
+        elif signal == "HIGH DEFAULT RISK" and confidence > 0.7:
+            return "REJECT"
+        elif signal == "HIGH DEFAULT RISK" and confidence > 0.6:
+            return "REJECT"
         else:
-            return "HOLD"
+            return "CONDITIONAL"
     
     def generate_summary(self, indicators: Dict[str, Any], signals: Dict[str, Any]) -> str:
         summary_parts = []
@@ -282,14 +282,14 @@ class TechnicalAnalysisTool:
         summary_parts.append(f"Overall Signal: {signals['overall_signal']} (Confidence: {signals['confidence']:.1%})")
         summary_parts.append(f"Recommendation: {signals['recommendation']}")
         
-        if "rsi" in indicators:
-            rsi_val = indicators["rsi"]["current_rsi"]
-            summary_parts.append(f"RSI: {rsi_val:.1f} ({indicators['rsi']['interpretation']})")
+        if "debt_to_equity_proxy" in indicators:
+            rsi_val = indicators["debt_to_equity_proxy"]["current_value"]
+            summary_parts.append(f"D/E Proxy: {rsi_val:.1f} ({indicators['debt_to_equity_proxy']['interpretation']})")
         
-        if "moving_averages" in indicators:
-            ma_20 = indicators["moving_averages"]["sma_20"]
+        if "free_cash_flow_proxies" in indicators:
+            ma_20 = indicators["free_cash_flow_proxies"]["sma_20"]
             if ma_20:
-                summary_parts.append(f"20-day SMA: ${ma_20:.2f}")
+                summary_parts.append(f"20-day FCF Proxy: ${ma_20:.2f}")
         
         return " | ".join(summary_parts)
 

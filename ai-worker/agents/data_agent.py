@@ -11,11 +11,9 @@ logger = logging.getLogger(__name__)
 class DataAgent:
     def __init__(self):
         self.agent = Agent(
-            role="Financial Data Collector",
-            goal="Gather comprehensive financial data, market information, and news sentiment for investment analysis",
-            backstory="""You are an expert financial data analyst with deep knowledge of market data sources, 
-            financial metrics, and news analysis. You excel at collecting accurate, timely, and relevant 
-            financial information from multiple sources and organizing it for analysis.""",
+            role="Financial Data & Credit Analyst",
+            goal="Gather comprehensive financial data, market information, and news sentiment for corporate credit risk analysis",
+            backstory="""You are an expert corporate credit data analyst with deep knowledge of corporate financial health, debt capacity, and loan servicing capability. You excel at collecting accurate, timely, and relevant corporate financial information from multiple sources and organizing it for credit analysis.""",
             verbose=True,
             allow_delegation=False,
             llm=get_gemini()
@@ -24,21 +22,21 @@ class DataAgent:
     def create_data_collection_task(self, symbols: List[str], analysis_period: str = "1y") -> Task:
         return Task(
             description=f"""
-            Collect comprehensive financial data for the following stocks: {', '.join(symbols)}
+            Collect comprehensive financial data for the following corporate entities: {', '.join(symbols)}
             
             Your tasks:
-            1. Gather current stock prices, historical data, and key financial metrics
-            2. Collect recent news articles and analyze sentiment for each stock
+            1. Gather current corporate metrics, historical data, and key financial health indicators
+            2. Collect recent news articles and analyze sentiment for each entity
             3. Obtain market overview data including major indices and sector performance
             4. Compile company fundamental data including financials, balance sheets, and cash flow
-            5. Organize all data in a structured format for analysis
+            5. Organize all data in a structured format for credit analysis
             
             Analysis period: {analysis_period}
             
             Provide detailed data collection results with proper organization and any data quality notes.
             """,
             agent=self.agent,
-            expected_output="Comprehensive financial data report with stock data, news sentiment, market overview, and fundamental analysis data"
+            expected_output="Comprehensive corporate financial data report with company data, news sentiment, market overview, and fundamental analysis data"
         )
     
     def collect_stock_data(self, symbols: List[str], period: str = "1y") -> Dict[str, Any]:

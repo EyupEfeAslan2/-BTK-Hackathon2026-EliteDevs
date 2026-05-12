@@ -1,51 +1,58 @@
-import React from 'react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
-} from 'recharts';
-import { FiShield, FiAlertTriangle, FiTrendingUp, FiTrendingDown, FiActivity, FiBriefcase } from 'react-icons/fi';
+import { FiAlertTriangle, FiBriefcase, FiCpu, FiFileText, FiShield } from 'react-icons/fi';
 
-const mockPriceData = [
-  { name: 'Jan', price: 150, risk: 20 },
-  { name: 'Feb', price: 160, risk: 25 },
-  { name: 'Mar', price: 155, risk: 30 },
-  { name: 'Apr', price: 170, risk: 22 },
-  { name: 'May', price: 185, risk: 15 },
-  { name: 'Jun', price: 180, risk: 18 },
-  { name: 'Jul', price: 195, risk: 10 },
-];
+const Dashboard = ({ data, error }) => {
+  if (!data) {
+    return (
+      <div className="w-full max-w-7xl mx-auto flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+        <FiAlertTriangle className="text-red-500 text-6xl mb-6 animate-pulse" />
+        <h2 className="text-4xl font-mono font-bold text-red-500 mb-4 tracking-widest cyber-glow-red">
+          NO DATA RECEIVED
+        </h2>
+        <p className="text-slate-400 font-mono max-w-lg mb-8">
+          The dashboard did not receive any data from the server.
+        </p>
+      </div>
+    );
+  }
 
-const mockRadarData = [
-  { subject: 'Market Volatility', A: 80, fullMark: 100 },
-  { subject: 'Credit Default', A: 40, fullMark: 100 },
-  { subject: 'Regulatory', A: 30, fullMark: 100 },
-  { subject: 'Liquidity', A: 60, fullMark: 100 },
-  { subject: 'Operational', A: 50, fullMark: 100 },
-  { subject: 'Geopolitical', A: 70, fullMark: 100 },
-];
+  if (error) {
+    return (
+      <div className="w-full max-w-7xl mx-auto flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+        <FiAlertTriangle className="text-red-500 text-6xl mb-6 animate-pulse" />
+        <h2 className="text-4xl font-mono font-bold text-red-500 mb-4 tracking-widest cyber-glow-red">
+          404_ERROR: ENTITY NOT FOUND OR INSUFFICIENT DATA
+        </h2>
+        <p className="text-slate-400 font-mono max-w-lg mb-8">
+          The AI committee could not retrieve verifiable public records for this corporate ID.
+        </p>
+        <div className="p-4 border border-red-500/30 bg-red-950/20 rounded-md font-mono text-red-400 text-sm mb-8 break-all max-w-2xl">
+          ERROR_DETAILS: {error || 'Insufficient data returned from analysis.'}
+        </div>
+      </div>
+    );
+  }
 
-const Dashboard = ({ data }) => {
-  // Extract or mock data based on API response
-  // If data is just a generic response from the hackathon API, we will adapt it
-  const symbol = data?.symbols?.[0] || 'AAPL';
-  
-  // Use data from backend if available, otherwise mock
-  const aiSignal = data?.decision === 'APPROVED' ? 'BUY' : data?.decision === 'REJECTED' ? 'SELL' : 'BUY';
-  const complianceStatus = data?.compliance_notes?.includes('Risk') ? 'VETO' : 'CLEAR';
-  const confidence = data?.confidence_score || 94.5;
-  
-  const isVeto = complianceStatus === 'VETO';
-  const isBuy = aiSignal === 'BUY';
+  const committeeDecision = data?.committee_decision || 'N/A';
+  const defaultRiskLevel = data?.default_risk_level || 'N/A';
+  const recommendedTerms = data?.recommended_loan_terms || {};
+  const covenants = data?.recommended_loan_terms?.covenants || [];
+  const justificationSummary = data?.justification_summary || 'N/A';
+
+  const isApproved = committeeDecision === 'APPROVED';
+  const isRejected = committeeDecision === 'REJECTED';
+  const signalClass = isApproved
+    ? 'border-emerald-500/40 bg-emerald-950/20 cyber-glow text-emerald-400'
+    : isRejected
+      ? 'border-red-500/40 bg-red-950/20 cyber-glow-red text-red-500'
+      : 'border-amber-500/40 bg-amber-950/20 text-amber-400';
 
   return (
     <div className="w-full max-w-7xl mx-auto font-sans animate-fade-in text-slate-200">
-      
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h2 className="text-3xl font-bold flex items-center gap-3">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 font-mono tracking-wider">
-              {symbol}
+              Corporate Credit Memo
             </span>
             <span className="text-slate-400 text-xl font-normal">| Institutional Risk Profile</span>
           </h2>
@@ -58,180 +65,132 @@ const Dashboard = ({ data }) => {
         </div>
       </div>
 
-      {/* Top Neon Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Overall AI Signal */}
-        <div className={`p-6 rounded-xl border backdrop-blur-sm relative overflow-hidden ${
-          isBuy 
-            ? 'border-emerald-500/40 bg-emerald-950/20 cyber-glow' 
-            : 'border-red-500/40 bg-red-950/20 cyber-glow-red'
-        }`}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className={`p-6 rounded-xl border backdrop-blur-sm relative overflow-hidden ${signalClass}`}>
           <div className="absolute -right-6 -top-6 opacity-10">
-            {isBuy ? <FiTrendingUp size={120} /> : <FiTrendingDown size={120} />}
+            <FiShield size={120} />
           </div>
           <div className="text-sm text-slate-400 mb-2 font-mono uppercase tracking-widest">Overall AI Signal</div>
           <div className="flex items-end gap-4">
-            <div className={`text-5xl font-bold ${isBuy ? 'text-emerald-400' : 'text-red-500'}`}>
-              {aiSignal}
+            <div className="text-5xl font-bold">
+              {data?.committee_decision || 'N/A'}
             </div>
-          </div>
-          <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
-            <FiActivity className={isBuy ? 'text-emerald-400' : 'text-red-500'} />
-            <span>Confidence: {confidence}%</span>
           </div>
         </div>
 
-        {/* Compliance Status */}
-        <div className={`p-6 rounded-xl border backdrop-blur-sm relative overflow-hidden ${
-          isVeto 
-            ? 'border-red-500/40 bg-red-950/20 cyber-glow-red' 
-            : 'border-cyan-500/40 bg-cyan-950/20 cyber-glow-blue'
-        }`}>
+        <div className="p-6 rounded-xl border border-cyan-500/40 bg-cyan-950/20 cyber-glow-blue backdrop-blur-sm relative overflow-hidden">
           <div className="absolute -right-6 -top-6 opacity-10">
-            {isVeto ? <FiAlertTriangle size={120} /> : <FiShield size={120} />}
+            <FiAlertTriangle size={120} />
           </div>
-          <div className="text-sm text-slate-400 mb-2 font-mono uppercase tracking-widest">Compliance Status</div>
+          <div className="text-sm text-slate-400 mb-2 font-mono uppercase tracking-widest">Credit Default Risk</div>
           <div className="flex items-end gap-4">
-            <div className={`text-5xl font-bold ${isVeto ? 'text-red-500' : 'text-cyan-400'}`}>
-              {complianceStatus}
+            <div className="text-5xl font-bold text-cyan-400">
+              {defaultRiskLevel || 'N/A'}
             </div>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
-            {isVeto ? <FiAlertTriangle className="text-red-500" /> : <FiShield className="text-cyan-400" />}
-            <span>Legal review {isVeto ? 'flagged issues' : 'passed without issues'}</span>
-          </div>
         </div>
 
-        {/* VaR (Value at Risk) */}
         <div className="p-6 rounded-xl border border-slate-700 bg-slate-900/50 backdrop-blur-sm">
-          <div className="text-sm text-slate-400 mb-2 font-mono uppercase tracking-widest">1-Day VaR (99%)</div>
+          <div className="text-sm text-slate-400 mb-2 font-mono uppercase tracking-widest">Memo Status</div>
           <div className="text-3xl font-bold text-slate-200">
-            $2.4M
-          </div>
-          <div className="mt-4 text-xs text-amber-400 flex items-center gap-1">
-            <FiAlertTriangle />
-            <span>Elevated volatility detected</span>
-          </div>
-        </div>
-
-        {/* ESG Score */}
-        <div className="p-6 rounded-xl border border-slate-700 bg-slate-900/50 backdrop-blur-sm">
-          <div className="text-sm text-slate-400 mb-2 font-mono uppercase tracking-widest">ESG Rating</div>
-          <div className="text-3xl font-bold text-slate-200">
-            AA<span className="text-lg text-emerald-400 ml-1">+</span>
+            {committeeDecision || 'N/A'}
           </div>
           <div className="mt-4 text-xs text-emerald-400 flex items-center gap-1">
-            <FiTrendingUp />
-            <span>Top 15% in sector</span>
+            <FiFileText />
+            <span>Structured credit committee output</span>
           </div>
         </div>
       </div>
 
+      <div className="mb-8 p-6 rounded-xl border border-emerald-500/30 bg-[#0b0f19] shadow-lg relative overflow-hidden">
+        <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${isRejected ? 'from-red-500 to-orange-500' : 'from-emerald-400 to-cyan-500'}`}></div>
+        <h3 className="text-sm font-mono text-emerald-400 mb-2 uppercase tracking-widest flex items-center gap-2">
+          <FiCpu /> AI CONSENSUS JUSTIFICATION
+        </h3>
+        <p className="text-slate-300 font-mono text-sm leading-relaxed pl-2">
+          {data?.justification_summary || 'N/A'}
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Charts Section */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Price & Risk Chart */}
-          <div className="p-6 rounded-xl border border-slate-800 bg-[#0b0f19] shadow-lg">
+        <div className="lg:col-span-2">
+          <div className="p-6 rounded-xl border border-slate-800 bg-[#0b0f19] shadow-lg h-full">
             <h3 className="text-lg font-semibold mb-6 flex items-center gap-2 font-mono border-b border-slate-800 pb-4">
-              <FiActivity className="text-cyan-400" />
-              Price & Risk Correlation
+              <FiBriefcase className="text-cyan-400" />
+              RECOMMENDED LOAN TERMS
             </h3>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={mockPriceData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="name" stroke="#64748b" tick={{fill: '#64748b'}} axisLine={{stroke: '#334155'}} />
-                  <YAxis yAxisId="left" stroke="#64748b" tick={{fill: '#64748b'}} axisLine={{stroke: '#334155'}} />
-                  <YAxis yAxisId="right" orientation="right" stroke="#64748b" tick={{fill: '#64748b'}} axisLine={{stroke: '#334155'}} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }}
-                    itemStyle={{ color: '#f8fafc' }}
-                  />
-                  <Line yAxisId="left" type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={3} dot={{r: 4, fill: '#0f172a', stroke: '#38bdf8', strokeWidth: 2}} activeDot={{r: 6, fill: '#38bdf8'}} />
-                  <Line yAxisId="right" type="monotone" dataKey="risk" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-slate-900/80 rounded-lg p-4 border border-slate-700">
+                <div className="text-xs text-slate-500 font-mono uppercase tracking-widest mb-2">Max Amount</div>
+                <div className="text-3xl font-bold text-slate-100">{recommendedTerms?.max_amount || 'N/A'}</div>
+              </div>
+              <div className="bg-slate-900/80 rounded-lg p-4 border border-slate-700">
+                <div className="text-xs text-slate-500 font-mono uppercase tracking-widest mb-2">Tenor</div>
+                <div className="text-3xl font-bold text-slate-100">{recommendedTerms?.tenor || 'N/A'}</div>
+              </div>
             </div>
-          </div>
-          
-          {/* Multi-Dimensional Risk Radar */}
-          <div className="p-6 rounded-xl border border-slate-800 bg-[#0b0f19] shadow-lg flex flex-col items-center">
-             <h3 className="text-lg font-semibold mb-2 w-full flex items-center gap-2 font-mono border-b border-slate-800 pb-4">
-              <FiBriefcase className="text-purple-400" />
-              Multi-Dimensional Risk Vector
-            </h3>
-            <div className="h-[300px] w-full max-w-md">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={mockRadarData}>
-                  <PolarGrid stroke="#334155" />
-                  <PolarAngleAxis dataKey="subject" tick={{fill: '#94a3b8', fontSize: 12}} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{fill: '#475569'}} />
-                  <Radar name="Risk Exposure" dataKey="A" stroke="#a855f7" fill="#a855f7" fillOpacity={0.3} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
+
+            <div>
+              <h4 className="text-sm font-mono text-slate-400 mb-3 uppercase">Covenants</h4>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {(covenants || []).length > 0 ? (
+                  (covenants || []).map((covenant, idx) => (
+                    <li key={idx} className="flex items-start gap-2 rounded bg-slate-800/50 border border-slate-700/50 p-3">
+                      <span className="text-cyan-400 mt-1">▹</span>
+                      <span>{covenant || 'N/A'}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="flex items-start gap-2 rounded bg-slate-800/20 border border-slate-700/20 p-3 text-slate-500">
+                    <span>N/A</span>
+                  </li>
+                )}
+              </ul>
             </div>
           </div>
         </div>
 
-        {/* Legal & Compliance Panel */}
         <div className="lg:col-span-1">
           <div className="p-6 rounded-xl border border-slate-800 bg-[#0b0f19] shadow-lg h-full">
             <h3 className="text-lg font-semibold mb-6 flex items-center gap-2 font-mono border-b border-slate-800 pb-4">
               <FiShield className="text-amber-400" />
-              Legal & Compliance Panel
+              Committee Snapshot
             </h3>
-            
-            <div className="space-y-6">
-              {/* Agent Output Box */}
-              <div className="bg-slate-900/80 rounded-lg p-4 border border-slate-700 relative">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-t-lg"></div>
-                <h4 className="text-sm font-mono text-amber-500 mb-2 uppercase">Agent Synopsis</h4>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  {data?.agent_deliberation || "Extensive cross-referencing of global sanction lists, pending litigations, and regulatory filings (10-K, 10-Q) completed. The entity's operational structure demonstrates high resilience to upcoming GDPR and KVKK legislative updates."}
-                </p>
-              </div>
 
-              {/* Status Checks */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
-                  <span className="text-sm text-slate-300">Sanctions List Scan</span>
-                  <span className="px-2 py-1 text-xs rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PASSED</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
-                  <span className="text-sm text-slate-300">Pending Litigation</span>
-                  <span className="px-2 py-1 text-xs rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">LOW RISK</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
-                  <span className="text-sm text-slate-300">Data Privacy (GDPR)</span>
-                  <span className="px-2 py-1 text-xs rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">MONITOR</span>
-                </div>
-                <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
-                  <span className="text-sm text-slate-300">Antitrust Violations</span>
-                  <span className="px-2 py-1 text-xs rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PASSED</span>
-                </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
+                <span className="text-sm text-slate-300">Decision</span>
+                <span className="px-2 py-1 text-xs rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">
+                  {data?.committee_decision || 'N/A'}
+                </span>
               </div>
+              <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
+                <span className="text-sm text-slate-300">Default Risk</span>
+                <span className="px-2 py-1 text-xs rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 uppercase">
+                  {data?.default_risk_level || 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
+                <span className="text-sm text-slate-300">Max Amount</span>
+                <span className="px-2 py-1 text-xs rounded bg-slate-700/60 text-slate-200 border border-slate-600 uppercase">
+                  {data?.recommended_loan_terms?.max_amount || 'N/A'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded bg-slate-800/50 border border-slate-700/50">
+                <span className="text-sm text-slate-300">Tenor</span>
+                <span className="px-2 py-1 text-xs rounded bg-slate-700/60 text-slate-200 border border-slate-600 uppercase">
+                  {data?.recommended_loan_terms?.tenor || 'N/A'}
+                </span>
+              </div>
+            </div>
 
-              {/* Key Notes */}
-              <div className="mt-6">
-                <h4 className="text-sm font-mono text-slate-400 mb-3 uppercase">Critical Findings</h4>
-                <ul className="space-y-2 text-sm text-slate-300">
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400 mt-1">▹</span>
-                    <span>No material impact from recent SEC regulatory shifts.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-amber-400 mt-1">▹</span>
-                    <span>Minor intellectual property dispute in EU jurisdiction; financial impact estimated &lt;0.05% of revenue.</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-cyan-400 mt-1">▹</span>
-                    <span>Executive board compliance certification verified.</span>
-                  </li>
-                </ul>
-              </div>
+            <div className="mt-6 bg-slate-900/80 rounded-lg p-4 border border-slate-700 relative">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-t-lg"></div>
+              <h4 className="text-sm font-mono text-amber-500 mb-2 uppercase">Summary</h4>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {justificationSummary || 'N/A'}
+              </p>
             </div>
           </div>
         </div>

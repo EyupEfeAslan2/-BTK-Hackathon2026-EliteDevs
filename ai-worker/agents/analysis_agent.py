@@ -9,12 +9,9 @@ logger = logging.getLogger(__name__)
 class AnalysisAgent:
     def __init__(self):
         self.agent = Agent(
-            role="Financial Analysis Specialist",
-            goal="Perform comprehensive technical and fundamental analysis to identify investment opportunities and risks",
-            backstory="""You are a seasoned financial analyst with expertise in both technical and fundamental analysis. 
-            You have years of experience in evaluating stocks using various analytical methods including chart patterns, 
-            technical indicators, financial ratios, and market trends. You excel at synthesizing complex financial data 
-            into actionable insights.""",
+            role="Credit Underwriter",
+            goal="Perform comprehensive financial health analysis to evaluate corporate debt servicing capabilities and default risks",
+            backstory="""You are a seasoned credit underwriter with expertise in corporate financial analysis. You have years of experience in evaluating corporate entities using various analytical methods including financial health metrics, debt ratios, cash flow analysis, and market trends. You excel at synthesizing complex financial data into actionable credit risk insights.""",
             verbose=True,
             allow_delegation=False,
             llm=get_gemini()
@@ -28,19 +25,19 @@ class AnalysisAgent:
             Perform comprehensive financial analysis on the collected data for: {', '.join(symbols)}
             
             Your analysis should include:
-            1. Technical analysis using indicators like RSI, MACD, moving averages, and Bollinger Bands
-            2. Fundamental analysis of financial metrics, ratios, and company performance
+            1. Financial health analysis using Debt-to-Equity, Liquidity (Current Ratio), Free Cash Flow, and DSCR proxies
+            2. Fundamental analysis of financial metrics, debt servicing ratios, and company performance
             3. Market trend analysis and sector comparison
             4. News sentiment impact assessment
             5. Identification of key strengths, weaknesses, opportunities, and threats
-            6. Price target estimation and trend predictions
+            6. Default probability estimation and trend predictions
             
-            Use the provided financial data, market data, and news sentiment to create detailed analysis reports.
+            Use the provided financial data, market data, and news sentiment to create detailed credit analysis reports.
             
             Provide specific, actionable insights with supporting evidence from the data.
             """,
             agent=self.agent,
-            expected_output="Detailed financial analysis report with technical indicators, fundamental metrics, market analysis, and investment insights"
+            expected_output="Detailed financial health report with credit metrics, fundamental analysis, market analysis, and credit risk insights"
         )
     
     def perform_technical_analysis(self, symbols: List[str], period: str = "6mo") -> Dict[str, Any]:
@@ -142,9 +139,9 @@ class AnalysisAgent:
             if total_indices > 0:
                 positive_ratio = positive_indices / total_indices
                 if positive_ratio > 0.6:
-                    market_trend = "bullish"
+                    market_trend = "LOW DEFAULT RISK"
                 elif positive_ratio < 0.4:
-                    market_trend = "bearish"
+                    market_trend = "HIGH DEFAULT RISK"
             
             sector_trends = {}
             for sector, data in sector_performance.items():
@@ -160,7 +157,7 @@ class AnalysisAgent:
             
             return {
                 "market_trend": market_trend,
-                "market_sentiment": "bullish" if positive_ratio > 0.5 else "bearish",
+                "market_sentiment": "LOW DEFAULT RISK" if positive_ratio > 0.5 else "HIGH DEFAULT RISK",
                 "sector_trends": sector_trends,
                 "leading_sectors": self.get_leading_sectors(sector_performance),
                 "lagging_sectors": self.get_lagging_sectors(sector_performance),

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { FiSearch, FiCpu } from 'react-icons/fi';
 import TerminalLoading from './components/TerminalLoading';
 import Dashboard from './components/Dashboard';
+import CompanyCombobox, { TOP_50_COMPANIES } from './components/CompanyCombobox';
 
 import './App.css';
 
@@ -16,6 +17,18 @@ function App() {
   const [apiDone, setApiDone] = useState(false);
   const [terminalDone, setTerminalDone] = useState(false);
 
+  const normalizeCompanyName = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const resolveTicker = (value) => {
+    const input = value.trim();
+    const matched = TOP_50_COMPANIES.find((company) => (
+      company.ticker.toLowerCase() === input.toLowerCase() ||
+      normalizeCompanyName(company.name) === normalizeCompanyName(input)
+    ));
+
+    return (matched?.ticker || input).toUpperCase();
+  };
+
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!symbolInput.trim()) return;
@@ -26,7 +39,7 @@ function App() {
     setApiDone(false);
     setTerminalDone(false);
 
-    const symbol = symbolInput.toUpperCase().trim();
+    const symbol = resolveTicker(symbolInput);
 
     try {
       const response = await axios.post('http://localhost:3030/api/v1/analyze', {
@@ -49,6 +62,9 @@ function App() {
   // When both terminal animation and API are done, transition to results
   React.useEffect(() => {
     if (appState === 'analyzing' && apiDone && terminalDone) {
+      setAppState('results');
+    }
+    if (appState === 'error' && terminalDone) {
       setAppState('results');
     }
   }, [appState, apiDone, terminalDone]);
@@ -76,25 +92,11 @@ function App() {
           </div>
 
           {/* Search Form */}
-          <form onSubmit={handleAnalyze} className="w-full md:w-auto relative group">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FiSearch className="text-emerald-500/50 group-focus-within:text-emerald-400 transition-colors" />
-            </div>
-            <input
-              type="text"
-              className="block w-full md:w-80 pl-10 pr-24 py-2.5 bg-[#0b0f19] border border-emerald-500/30 rounded-lg text-emerald-50 font-mono focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all placeholder:text-slate-600 focus:outline-none focus:cyber-glow"
-              placeholder="ENTER SYMBOL (e.g. AAPL)"
-              value={symbolInput}
-              onChange={(e) => setSymbolInput(e.target.value)}
-              disabled={appState === 'analyzing'}
+          <form onSubmit={handleAnalyze} className="w-full md:w-auto flex justify-center md:justify-end">
+            <CompanyCombobox 
+              onSymbolChange={setSymbolInput} 
+              disabled={appState === 'analyzing'} 
             />
-            <button
-              type="submit"
-              disabled={appState === 'analyzing' || !symbolInput.trim()}
-              className="absolute inset-y-1 right-1 px-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-md text-xs font-mono font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              ANALYZE
-            </button>
           </form>
 
         </div>
@@ -124,31 +126,29 @@ function App() {
             </div>
           )}
 
-          {appState === 'analyzing' && (
-            <div className="mt-8">
-              <TerminalLoading onComplete={handleTerminalComplete} />
+          {(appState === 'analyzing' || appState === 'error') && (
+            <div className="mt-8 flex flex-col items-center">
+              <TerminalLoading 
+                onComplete={handleTerminalComplete} 
+                apiDone={apiDone || appState === 'error'} 
+                error={appState === 'error' ? errorMsg : null}
+                symbol={symbolInput}
+                companyName={TOP_50_COMPANIES.find(c => c.ticker === symbolInput.toUpperCase())?.name}
+                sector={undefined} // Defaulting to "Corporate" in TerminalLoading
+              />
+              {appState === 'error' && (
+                <button 
+                  onClick={() => setAppState('idle')}
+                  className="mt-6 px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded font-mono text-sm transition-colors animate-fade-in"
+                >
+                  ACKNOWLEDGE & RESET
+                </button>
+              )}
             </div>
           )}
 
-          {appState === 'results' && data && (
-            <Dashboard data={data} />
-          )}
-
-          {appState === 'error' && (
-            <div className="max-w-2xl mx-auto mt-12 p-6 rounded-lg border border-red-500/30 bg-red-950/20 cyber-glow-red animate-fade-in">
-              <h3 className="text-red-500 font-mono font-bold text-lg mb-2 flex items-center gap-2">
-                <span className="text-2xl">⚠</span> CRITICAL EXCEPTION
-              </h3>
-              <p className="text-slate-300 font-mono text-sm">
-                {errorMsg}
-              </p>
-              <button 
-                onClick={() => setAppState('idle')}
-                className="mt-6 px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded font-mono text-sm transition-colors"
-              >
-                ACKNOWLEDGE & RESET
-              </button>
-            </div>
+          {appState === 'results' && (data || errorMsg) && (
+            <Dashboard data={data} error={errorMsg} />
           )}
         </div>
       </main>

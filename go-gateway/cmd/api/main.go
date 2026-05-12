@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"hackaton-gateway/internal/db"
 	"hackaton-gateway/internal/handlers"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,6 +12,9 @@ import (
 )
 
 func main() {
+	// Initialize database
+	db.InitDB()
+
 	// Setup the Fiber app
 	app := fiber.New(fiber.Config{
 		DisableStartupMessage: true, // Disable default to show our cool banner

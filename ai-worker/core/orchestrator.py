@@ -31,6 +31,7 @@ class FinancialAnalysisOrchestrator:
         logger.info(f"Available LLM providers: {get_gemini()}")
     
     def create_analysis_crew(self, symbols: List[str], analysis_period: str = "1y") -> Crew:
+        raw_json_instruction = "CRITICAL: OUTPUT ONLY RAW VALID JSON. DO NOT WRAP IN MARKDOWN. DO NOT USE ```json."
         data_task = self.data_agent.create_data_collection_task(symbols, analysis_period)
         
         compliance_task = self.compliance_agent.create_compliance_analysis_task({"symbols": symbols})
@@ -40,6 +41,7 @@ class FinancialAnalysisOrchestrator:
         analysis_task.context = [data_task]
         
         risk_task = self.risk_agent.create_risk_assessment_task({"symbols": symbols})
+        risk_task.description = f"{risk_task.description}\n\n{raw_json_instruction}"
         risk_task.context = [data_task, analysis_task, compliance_task]
         
         crew = Crew(
@@ -156,7 +158,7 @@ class FinancialAnalysisOrchestrator:
                 "veto_flag": compliance_results.get("veto_flag", False),
                 "legal_summary": compliance_results.get("legal_summary", "No data")
             },
-            "executive_summary": self.generate_executive_summary(
+            "credit_committee_memo": self.generate_credit_committee_memo(
                 symbols, collected_data, analysis_results, risk_results
             ),
             "method": "direct_orchestration",
@@ -166,84 +168,56 @@ class FinancialAnalysisOrchestrator:
         
         return final_results
     
-    def generate_executive_summary(self, 
+    def generate_credit_committee_memo(self, 
                                   symbols: List[str],
                                   data: Dict[str, Any],
                                   analysis: Dict[str, Any], 
                                   risk: Dict[str, Any]) -> Dict[str, Any]:
         
-        summary = {
-            "analysis_overview": {
-                "symbols_analyzed": len(symbols),
-                "analysis_period": data.get("period", "Unknown"),
-                "data_quality": data.get("summary", {}).get("data_quality", "Unknown"),
-                "analysis_quality": analysis.get("analysis_summary", {}).get("analysis_quality", "Unknown")
-            },
-            "key_findings": [],
-            "top_recommendations": [],
-            "risk_highlights": [],
-            "portfolio_summary": {}
-        }
+        # If no risk recommendations are available
+        recommendations = risk.get("recommendations", {}).get("individual_decisions", {})
         
-        market_analysis = analysis.get("market_analysis", {})
-        if market_analysis.get("status") == "success":
-            market_trend = market_analysis.get("market_trend", "neutral")
-            summary["key_findings"].append(f"Overall market trend: {market_trend}")
+        if not recommendations and symbols:
+            return {
+                "committee_decision": "MANUAL_REVIEW",
+                "default_risk_level": "UNKNOWN",
+                "recommended_loan_terms": {
+                    "max_amount": "$0M",
+                    "tenor": "0 months",
+                    "covenants": ["Requires manual underwriting"]
+                },
+                "justification_summary": "The Advocate Agent could not identify enough verified strengths to support an automated approval, BUT the Risk Auditor flagged the missing evidence as a material underwriting gap. Therefore, the committee decided to send the request to manual review until repayment capacity, liquidity, and covenant coverage can be confirmed."
+            }
             
-            leading_sectors = market_analysis.get("leading_sectors", [])
-            if leading_sectors:
-                summary["key_findings"].append(f"Leading sectors: {', '.join(leading_sectors[:3])}")
-        
-        recommendations = risk.get("recommendations", {}).get("individual_recommendations", {})
-        buy_recommendations = []
-        sell_recommendations = []
-        
-        for symbol, rec in recommendations.items():
-            action = rec.get("recommendation", "HOLD")
-            if action in ["STRONG_BUY", "BUY"]:
-                buy_recommendations.append({
-                    "symbol": symbol,
-                    "action": action,
-                    "confidence": rec.get("confidence", 0),
-                    "target_price": rec.get("target_price")
-                })
-            elif action in ["STRONG_SELL", "SELL"]:
-                sell_recommendations.append({
-                    "symbol": symbol,
-                    "action": action,
-                    "confidence": rec.get("confidence", 0)
-                })
-        
-        buy_recommendations.sort(key=lambda x: x["confidence"], reverse=True)
-        sell_recommendations.sort(key=lambda x: x["confidence"], reverse=True)
-        
-        summary["top_recommendations"] = {
-            "buy": buy_recommendations[:3],
-            "sell": sell_recommendations[:3]
-        }
-        
-        portfolio_risk = risk.get("portfolio_risk", {}).get("portfolio_risk", {})
-        if portfolio_risk:
-            risk_level = portfolio_risk.get("risk_level", "UNKNOWN")
-            summary["risk_highlights"].append(f"Portfolio risk level: {risk_level}")
+        # For a single symbol (most common use case in this app)
+        if len(symbols) == 1 or len(recommendations) == 1:
+            symbol = symbols[0] if symbols else list(recommendations.keys())[0]
+            rec = recommendations.get(symbol, {})
             
-            avg_risk = portfolio_risk.get("average_risk_score", 0)
-            summary["risk_highlights"].append(f"Average risk score: {avg_risk:.1f}/100")
-        
-        portfolio_allocation = risk.get("recommendations", {}).get("portfolio_allocation", {})
-        if portfolio_allocation:
-            summary["portfolio_summary"] = {
-                "recommended_stock_allocation": f"{portfolio_allocation.get('total_invested', 0):.1f}%",
-                "recommended_cash_allocation": f"{portfolio_allocation.get('cash_allocation', 0):.1f}%",
-                "number_of_positions": len(portfolio_allocation.get('stock_allocations', {}))
+            return {
+                "committee_decision": rec.get("committee_decision", "CONDITIONAL"),
+                "default_risk_level": rec.get("default_risk_level", "MEDIUM"),
+                "recommended_loan_terms": rec.get("recommended_loan_terms", {
+                    "max_amount": "$0M",
+                    "tenor": "0 months",
+                    "covenants": ["Standard covenants apply"]
+                }),
+                "justification_summary": rec.get("justification_summary", "Decision based on automated review.")
             }
         
-        overall_strategy = risk.get("recommendations", {}).get("overall_strategy", {})
-        if overall_strategy:
-            summary["investment_strategy"] = overall_strategy.get("strategy", "BALANCED")
-            summary["market_outlook"] = overall_strategy.get("market_outlook", "NEUTRAL")
+        # If multiple symbols are requested, aggregate them into a portfolio memo
+        overall_resolution = risk.get("recommendations", {}).get("overall_resolution", {})
         
-        return summary
+        return {
+            "committee_decision": "CONDITIONAL",
+            "default_risk_level": overall_resolution.get("market_outlook", "MEDIUM"),
+            "recommended_loan_terms": {
+                "max_amount": "Portfolio Level",
+                "tenor": "Various",
+                "covenants": ["Portfolio covenants apply"]
+            },
+            "justification_summary": f"Portfolio analysis for {len(symbols)} entities. Strategy: {overall_resolution.get('strategy', 'BALANCED_PORTFOLIO')}."
+        }
 
     def parse_crew_result(self, result: Any) -> Any:
         raw_result = getattr(result, "raw", result)

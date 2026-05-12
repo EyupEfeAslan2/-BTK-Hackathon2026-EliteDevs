@@ -5,6 +5,15 @@ import yfinance as yf
 from typing import Dict, List, Any
 from core.config import settings
 
+def fetch_financial_data(ticker):
+    if not ticker.endswith('.IS') and is_bist_stock(ticker): 
+        ticker += '.IS'
+        
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period="1mo")
+    
+    if hist.empty:
+        raise ValueError(f"404_ERROR: '{ticker}' adında bir şirket bulunamadı veya finansal verisi halka açık değil. Lütfen geçerli bir Kurumsal Kimlik (Ticker) giriniz.")
 logger = logging.getLogger(__name__)
 
 class FinancialDataTool:    

@@ -1,20 +1,20 @@
-# EliteDevs Financial Analysis AI
+# EliteDevs B2B Multi-Agent Credit Committee Engine
 
 ## Proje Açıklaması
 
-EliteDevs Financial Analysis AI, BTK Hackathon 2026 için geliştirilmiş, çoklu ajan tabanlı bir finansal analiz platformudur. Bu sistem, gelişmiş yapay zeka ajanları kullanarak hisse senedi piyasalarını kapsamlı bir şekilde analiz eder, risk değerlendirmesi yapar ve yatırım önerileri sunar. Teknik göstergeler, temel analiz ve piyasa duyarlılığı gibi birden fazla boyutu birleştirerek veri odaklı, tarafsız finansal analiz sağlar.
+EliteDevs B2B Multi-Agent Credit Committee Engine, BTK Hackathon 2026 için geliştirilmiş, çoklu ajan tabanlı bir kurumsal kredi risk platformudur. Bu sistem, gelişmiş yapay zeka ajanları kullanarak kurumsal firmaların kredibilitesini analiz eder, temerrüt riski değerlendirmesi yapar ve kredi komitesi kararları sunar. Finansal sağlık göstergeleri, temel analiz ve sektörel duyarlılığı birleştirerek veri odaklı, tarafsız kredi tahsis analizi sağlar.
 
 ## Çözülen Problemler
 
 Finansal piyasalar karmaşık ve çok boyutlu analiz gerektirir. Bireysel yatırımcılar ve finans profesyonelleri aşağıdaki zorluklarla karşılaşır:
 
 - **Bilgi Aşırı Yükü**: Fiyatlar, haberler, finansal raporlar ve ekonomik göstergelerden gelen büyük veri miktarı
-- **Çok Boyutlu Analiz**: Etkili yatırım kararları için teknik analiz, temel analiz, duygu analizi ve risk değerlendirmesinin birleştirilmesi
-- **Zaman Kısıtlaması**: Birden fazla hisse senedinin farklı zaman dilimlerinde manuel analizi zaman alıcıdır
+- **Çok Boyutlu Analiz**: Etkili kredi kararları için finansal sağlık, temel analiz ve risk değerlendirmesinin birleştirilmesi
+- **Zaman Kısıtlaması**: Birden fazla kurumsal müşterinin manuel kredi analizi zaman alıcıdır
 - **Duygusal Önyargı**: İnsan karar verme süreci duygular ve bilişsel önyargılarla etkilenebilir
-- **Risk Yönetimi**: Uygun portföy risk değerlendirmesi karmaşık matematiksel hesaplamalar ve tarihsel analiz gerektirir
+- **Risk Yönetimi**: Uygun temerrüt risk değerlendirmesi karmaşık hesaplamalar ve nakit akışı analizi gerektirir
 
-EliteDevs Financial Analysis AI, uzmanlaşmış yapay zeka ajanlarının işbirliğiyle bu zorlukları aşarak kapsamlı, tarafsız ve veri odaklı finansal analiz ve yatırım önerileri sağlar.
+EliteDevs Credit Committee Engine, uzmanlaşmış yapay zeka ajanlarının işbirliğiyle bu zorlukları aşarak kapsamlı, tarafsız kredi tahsis kararları sağlar.
 
 ## Proje Yapısı
 
@@ -45,7 +45,7 @@ ai-worker/
 
 ## Ajan Etkileşimleri ve İş Akışı
 
-EliteDevs Financial Analysis AI, uzmanlaşmış yapay zeka ajanlarının işbirliği yaptığı çoklu ajan mimarisi kullanır.
+EliteDevs Credit Committee Engine, uzmanlaşmış yapay zeka ajanlarının işbirliği yaptığı çoklu ajan mimarisi kullanır.
 
 ### Ajan İşbirliği Akışı
 
@@ -55,45 +55,45 @@ DataAgent → AnalysisAgent → RiskAgent → Nihai Rapor
 
 ### 1. **DataAgent** (Veri Toplama ve İşleme)
 
-- **Birincil Rol**: Finansal verileri toplar ve ön işler
-- **Veri Kaynakları**: Hisse fiyatları, finansal tablolar, piyasa endeksleri, haber akışları
-- **Çıktı**: Temiz, yapılandırılmış finansal veri setleri
+- **Birincil Rol**: Kurumsal finansal verileri toplar ve ön işler
+- **Veri Kaynakları**: Kurumsal metrikler, finansal tablolar, piyasa endeksleri, haber akışları
+- **Çıktı**: Temiz, yapılandırılmış kurumsal veri setleri
 - **Aktarım**: AnalysisAgent'a standartlaştırılmış veri sağlar
 
-### 2. **AnalysisAgent** (Teknik ve Temel Analiz)
+### 2. **AnalysisAgent** (Kredi Değerlendiricisi)
 
 - **Giriş**: DataAgent'tan işlenmiş verileri alır
-- **Teknik Analiz**: RSI, MACD, Bollinger Bantları, hareketli ortalamalar, destek/direnç hesaplar
-- **Temel Analiz**: Finansal oranlar, değerleme metrikleri, büyüme oranları hesaplar
+- **Finansal Sağlık Analizi**: Borç/Özkaynak, Likidite, Serbest Nakit Akışı, DSCR hesaplar
+- **Temel Analiz**: Finansal oranlar, borç çevirme metrikleri, büyüme oranları hesaplar
 - **Duygu Analizi**: Haber duygu ve piyasa göstergelerini işler
-- **Çıktı**: Teknik sinyaller, temel puanlar ve piyasa duyarlılığı
+- **Çıktı**: Finansal sağlık sinyalleri ve temerrüt ihtimali tahminleri
 - **Aktarım**: RiskAgent'a analiz sonuçlarını sağlar
 
-### 3. **RiskAgent** (Risk Değerlendirmesi ve Öneriler)
+### 3. **RiskAgent** (Kredi Risk Subayı)
 
 - **Giriş**: AnalysisAgent'tan analiz sonuçlarını alır
-- **Risk Hesaplamaları**: VaR, Sharpe oranı, beta, volatilite, maksimum düşüş
-- **Portföy Analizi**: Pozisyon boyutlandırma, tahsis önerileri, korelasyon analizi
-- **Nihai Puanlama**: Teknik, temel ve risk metriklerini eyleme dönüştürülebilir önerilere birleştirir
+- **Risk Hesaplamaları**: Temerrüt olasılığı, kovenant ihlal riski
+- **Portföy Analizi**: Sistemik risk değerlendirmesi
+- **Nihai Puanlama**: Finansal metrikleri eyleme dönüştürülebilir kredi kararlarına birleştirir
 
 ## Özellikler
 
 ### Temel Yetenekler
 
-- **Çoklu Ajan Mimarisi**: Veri toplama, teknik analiz, temel analiz ve risk değerlendirmesi için uzmanlaşmış yapay zeka ajanları
-- **Gerçek Zamanlı Veri Entegrasyonu**: Yahoo Finance, Alpha Vantage, Finnhub ve RSS haber akışları
-- **Temel Analiz**: Finansal oranlar, değerleme metrikleri, karlılık analizi
-- **Risk Değerlendirmesi**: VaR, Sharpe oranı, beta hesaplama, portföy risk metrikleri
-- **Haber Duygu Analizi**: Piyasa etkisi değerlendirmesi için gerçek zamanlı haber duygu analizi
-- **Portföy Optimizasyonu**: Akıllı pozisyon boyutlandırma ve tahsis önerileri
-- **Profesyonel Raporlama**: Zengin terminal çıktısı ve detaylı JSON raporları
+- **Çoklu Ajan Mimarisi**: Veri toplama, finansal sağlık analizi ve kredi risk değerlendirmesi için uzmanlaşmış yapay zeka ajanları
+- **Gerçek Zamanlı Veri Entegrasyonu**: API'lar ve RSS haber akışları
+- **Temel Analiz**: Borç ödeme oranları, değerleme metrikleri, karlılık analizi
+- **Risk Değerlendirmesi**: Temerrüt riski, kovenant riskleri
+- **Haber Duygu Analizi**: Kurumsal itibar değerlendirmesi için gerçek zamanlı haber duygu analizi
+- **Kredi Optimizasyonu**: Kredi limitleri ve vade/kovenant önerileri
+- **Profesyonel Raporlama**: Detaylı JSON kredi komitesi raporları (Credit Committee Memo)
 
 ### Desteklenen Analiz Türleri
 
-- **Tek Hisse Analizi**: Tek hisse senetlerinin derinlemesine analizi
-- **Çoklu Hisse Portföy Analizi**: Birden fazla menkul kıymetin karşılaştırmalı analizi
-- **Risk Ayarlı Öneriler**: Güven puanlarıyla AL/SAT/TUT önerileri
-- **Piyasa Trend Analizi**: Sektör performansı ve piyasa görünümü değerlendirmesi
+- **Tekil Kurum Analizi**: Kurumsal firmaların derinlemesine kredi incelemesi
+- **Sektörel Kredi Analizi**: Sektördeki firmaların karşılaştırmalı analizi
+- **Risk Ayarlı Kararlar**: Güven puanlarıyla ONAY/RED/ŞARTLI kredi kararları
+- **Piyasa Trend Analizi**: Sektör performansı ve temerrüt trendleri değerlendirmesi
 
 ## Ön Koşullar
 
@@ -198,21 +198,21 @@ python app.py analyze BRK-B SPY --period 5y
 
 ## Analiz Bileşenleri
 
-### 1. Teknik Analiz
+### 1. Finansal Sağlık Analizi
 
-**Gösterge:** RSI, MACD, Bollinger Bantları, Hareketli Ortalamalar (SMA/EMA), Destek/Direnç, Hacim
+**Metrik:** Borç/Özkaynak, Likidite, Serbest Nakit Akışı, DSCR
 
 ### 2. Temel Analiz
 
-**Metrik:** F/K, F/B, ÖZS, ÖKA, Borç Oranları, Kar Marjları, Büyüme Oranları
+**Metrik:** Borç Oranları, Kar Marjları, Büyüme Oranları, İşletme Değeri
 
-### 3. Risk Değerlendirmesi
+### 3. Kredi Risk Değerlendirmesi
 
-**Hesaplamalar:** Volatilite, VaR, Maksimum Düşüş, Sharpe Oranı, Beta
+**Metrikler:** Temerrüt Olasılığı, Kovenant İhlal Riski
 
-### 4. Yatırım Önerileri
+### 4. Kredi Komitesi Kararları
 
-**Ölçek:** GÜÇLÜ_AL (≥70) • AL (≥60) • TUT (≥40) • SAT (≥30) • GÜÇLÜ_SAT (<30)
+**Karar Tipi:** ONAY • ŞARTLI_ONAY • MANUEL_INCELEME • RED
 
 ## Çıktı Dosyaları
 
@@ -223,7 +223,7 @@ Tüm analizler otomatik olarak detaylı JSON raporları oluşturur:
 **Dosya Adı Formatı:**
 
 ```
-financial_analysis_{SEMBOLLAR}_{ZAMAN_DAMGASI}.json
+credit_memo_{SEMBOLLAR}_{ZAMAN_DAMGASI}.json
 ```
 
 ## Katkıda Bulunma

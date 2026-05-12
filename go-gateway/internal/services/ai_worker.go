@@ -1,7 +1,11 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"regexp"
+	"strings"
 	"time"
 
 	"hackaton-gateway/internal/models"
@@ -12,23 +16,63 @@ import (
 // client is configured with a 120-second timeout for the multi-agent consensus
 var client = resty.New().SetTimeout(120 * time.Second)
 
-// CallAIWorker makes a POST request to the Python AI microservice
-func CallAIWorker(req models.AnalyzeRequest) (map[string]interface{}, error) {
-	var aiResp models.AnalyzeResponse
+var markdownJSONFencePattern = regexp.MustCompile("(?is)^\\s*```(?:json)?\\s*(.*?)\\s*```\\s*$")
 
+func stripMarkdownJSONFence(body []byte) []byte {
+	cleaned := strings.TrimSpace(string(body))
+	matches := markdownJSONFencePattern.FindStringSubmatch(cleaned)
+	if len(matches) == 2 {
+		cleaned = matches[1]
+	}
+	cleaned = strings.TrimPrefix(cleaned, "```json")
+	cleaned = strings.TrimPrefix(cleaned, "```JSON")
+	cleaned = strings.TrimPrefix(cleaned, "```")
+	cleaned = strings.TrimSuffix(cleaned, "```")
+	return []byte(strings.TrimSpace(cleaned))
+}
+
+// CallAIWorker makes a POST request to the Python AI microservice
+func CallAIWorker(req models.AnalyzeRequest) (models.AnalyzeResponse, []byte, error) {
 	resp, err := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(req).
-		SetResult(&aiResp).
 		Post("http://ai-worker:8000/api/analyze")
 
+	var aiResp models.AnalyzeResponse
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to call AI worker: %w", err)
+		return aiResp, nil, fmt.Errorf("failed to call AI worker: %w", err)
 	}
 
 	if resp.IsError() {
-		return nil, fmt.Errorf("AI worker returned error status: %d - %s", resp.StatusCode(), resp.String())
+		return aiResp, nil, fmt.Errorf("AI worker returned error status: %d - %s", resp.StatusCode(), resp.String())
 	}
 
-	return aiResp, nil
+	body := stripMarkdownJSONFence(resp.Body())
+	if err := json.Unmarshal(body, &aiResp); err != nil {
+		log.Printf("Unmarshal error: %v", err)
+		return aiResp, nil, fmt.Errorf("failed to parse AI worker response: %w", err)
+	}
+
+	if aiResp.CommitteeDecision == "" && aiResp.DefaultRiskLevel == "" && aiResp.JustificationSummary == "" {
+		var wrapped struct {
+			CreditCommitteeMemo models.AnalyzeResponse `json:"credit_committee_memo"`
+		}
+		if err := json.Unmarshal(body, &wrapped); err != nil {
+			log.Printf("Unmarshal error: %v", err)
+			return aiResp, nil, fmt.Errorf("failed to parse AI worker response wrapper: %w", err)
+		}
+		if wrapped.CreditCommitteeMemo.CommitteeDecision != "" ||
+			wrapped.CreditCommitteeMemo.DefaultRiskLevel != "" ||
+			wrapped.CreditCommitteeMemo.JustificationSummary != "" {
+			aiResp = wrapped.CreditCommitteeMemo
+			body, err = json.Marshal(aiResp)
+			if err != nil {
+				log.Printf("Marshal error: %v", err)
+				return aiResp, nil, fmt.Errorf("failed to normalize AI worker response: %w", err)
+			}
+		}
+	}
+
+	return aiResp, body, nil
 }

@@ -9,12 +9,9 @@ logger = logging.getLogger(__name__)
 class RiskAgent:
     def __init__(self):
         self.agent = Agent(
-            role="Risk Assessment & Investment Advisor",
-            goal="Evaluate investment risks, calculate risk metrics, and provide actionable investment recommendations",
-            backstory="""You are a senior risk management specialist and investment advisor with extensive experience 
-            in portfolio management, risk assessment, and investment strategy. You excel at identifying potential risks, 
-            calculating risk-adjusted returns, and providing clear, actionable investment recommendations based on 
-            comprehensive analysis.""",
+            role="Credit Risk Officer",
+            goal="Evaluate corporate default risks, calculate debt servicing metrics, and provide actionable credit committee recommendations",
+            backstory="""You are a senior credit risk officer with extensive experience in corporate lending, credit analysis, and debt underwriting. You excel at identifying potential default risks, calculating debt servicing capabilities, and providing clear, actionable loan approval recommendations based on comprehensive credit analysis.""",
             verbose=True,
             allow_delegation=False,
             llm=get_gemini()
@@ -25,24 +22,28 @@ class RiskAgent:
         
         return Task(
             description=f"""
-            Perform comprehensive risk assessment and generate investment recommendations for: {', '.join(symbols)}
+            Perform comprehensive credit risk assessment and generate committee recommendations for: {', '.join(symbols)}
             
             Your assessment should include:
-            1. Calculate risk metrics including volatility, beta, VaR, and Sharpe ratio
-            2. Identify key risk factors for each investment
-            3. Assess portfolio diversification and correlation risks
-            4. Evaluate market timing and macroeconomic risks
+            1. Calculate default risk metrics including probability of default and covenant breach risks
+            2. Identify key credit risk factors for each corporate entity
+            3. Assess industry concentration and systemic risks
+            4. Evaluate macroeconomic impacts on debt servicing
             5. Consider liquidity and operational risks
-            6. Generate specific investment recommendations with position sizing
-            7. Provide risk management strategies and stop-loss levels
-            8. Create portfolio allocation suggestions
+            6. Generate specific credit decisions with recommended loan terms
+            7. Provide risk mitigation strategies and covenant requirements
+            8. Create final credit committee memos
             
-            Use the provided technical analysis, fundamental analysis, and market data to make informed risk assessments.
+            Use the provided financial health analysis, fundamental analysis, and market data to make informed risk assessments.
             
-            Provide clear, actionable recommendations with specific risk parameters and investment guidelines.
+            Provide clear, actionable recommendations with specific risk parameters and loan guidelines.
+
+            For the "justification_summary" field, write a human-readable 2-3 sentence Explainable AI narrative. It MUST explicitly summarize the debate between agents, for example: "The Advocate Agent highlighted steady revenue, BUT the Risk Auditor flagged tight liquidity margins. Therefore, the committee decided to...". Do not list raw numbers or scores as the justification_summary.
+
+            CRITICAL: OUTPUT ONLY RAW VALID JSON. DO NOT WRAP IN MARKDOWN. DO NOT USE ```json.
             """,
             agent=self.agent,
-            expected_output="Comprehensive risk assessment report with investment recommendations, risk metrics, and portfolio allocation guidance"
+            expected_output="Comprehensive credit risk report with committee decisions, default risk metrics, and recommended loan terms"
         )
     
     def calculate_risk_metrics(self, symbols: List[str], stock_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,7 +123,7 @@ class RiskAgent:
             logger.error(f"Error assessing portfolio risk: {str(e)}")
             return {"error": str(e), "status": "failed"}
     
-    def generate_investment_recommendations(self, 
+    def generate_credit_decisions(self, 
                                           analysis_results: Dict[str, Any], 
                                           risk_assessment: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -134,7 +135,7 @@ class RiskAgent:
             recommendations = {}
             
             for symbol in symbols:
-                logger.info(f"Generating recommendations for {symbol}")
+                logger.info(f"Generating credit decision for {symbol}")
                 
                 tech_data = technical_analysis.get(symbol, {})
                 fund_data = fundamental_analysis.get(symbol, {})
@@ -142,7 +143,7 @@ class RiskAgent:
                 
                 if "error" in tech_data or "error" in fund_data or "error" in risk_data:
                     recommendations[symbol] = {
-                        "recommendation": "INSUFFICIENT_DATA",
+                        "recommendation": "MANUAL_REVIEW",
                         "reason": "Incomplete analysis data"
                     }
                     continue
@@ -152,36 +153,29 @@ class RiskAgent:
                 fundamental_score = fund_data.get("fundamental_score", 50)
                 risk_score = risk_data.get("risk_score", 50)
                 
-                recommendation = self.generate_stock_recommendation(
+                recommendation = self.generate_credit_decision(
                     technical_signal, technical_confidence, fundamental_score, risk_score
                 )
                 
-                position_size = self.calculate_position_size(risk_score, technical_confidence)
-                
-                current_price = tech_data.get("current_price")
-                stop_loss, target_price = self.calculate_price_targets(
-                    current_price, technical_signal, risk_score
-                )
+                max_amount = self.calculate_loan_amount(risk_score, technical_confidence)
+                tenor, covenants = self.calculate_loan_terms(technical_signal, risk_score)
                 
                 recommendations[symbol] = {
-                    "recommendation": recommendation["action"],
+                    "committee_decision": recommendation["action"],
                     "confidence": recommendation["confidence"],
-                    "reasoning": recommendation["reasoning"],
-                    "position_size": position_size,
-                    "current_price": current_price,
-                    "target_price": target_price,
-                    "stop_loss": stop_loss,
-                    "risk_level": self.classify_risk_level(risk_score),
-                    "time_horizon": recommendation["time_horizon"],
+                    "justification_summary": recommendation["reasoning"],
+                    "recommended_loan_terms": {
+                        "max_amount": f"${max_amount:.1f}M",
+                        "tenor": tenor,
+                        "covenants": covenants
+                    },
+                    "default_risk_level": self.classify_risk_level(risk_score),
                     "key_risks": self.identify_key_risks(tech_data, fund_data, risk_data)
                 }
             
-            portfolio_allocation = self.generate_portfolio_allocation(recommendations)
-            
             return {
-                "individual_recommendations": recommendations,
-                "portfolio_allocation": portfolio_allocation,
-                "overall_strategy": self.generate_overall_strategy(recommendations),
+                "individual_decisions": recommendations,
+                "overall_resolution": self.generate_committee_resolution(recommendations),
                 "status": "success"
             }
             
@@ -227,7 +221,7 @@ class RiskAgent:
         portfolio_risk = self.assess_portfolio_risk(symbols, risk_metrics.get("risk_metrics", {}))
         results["portfolio_risk"] = portfolio_risk
         
-        recommendations = self.generate_investment_recommendations(analysis_results, risk_metrics)
+        recommendations = self.generate_credit_decisions(analysis_results, risk_metrics)
         results["recommendations"] = recommendations
         
         risk_management = self.generate_risk_management_plan(results)
@@ -249,10 +243,10 @@ class RiskAgent:
             
             base_risk = 50  # Default moderate risk
             
-            if technical_signal == "BULLISH" and confidence > 0.7:
-                risk_score = 35  # Lower risk for strong bullish signals
-            elif technical_signal == "BEARISH" and confidence > 0.7:
-                risk_score = 75  # Higher risk for strong bearish signals
+            if technical_signal == "LOW DEFAULT RISK" and confidence > 0.7:
+                risk_score = 35  # Lower risk for strong positive signals
+            elif technical_signal == "HIGH DEFAULT RISK" and confidence > 0.7:
+                risk_score = 75  # Higher risk for strong negative signals
             elif confidence < 0.3:
                 risk_score = 65  # Higher risk for uncertain signals
             else:
@@ -363,7 +357,7 @@ class RiskAgent:
         
         return recommendations
     
-    def generate_stock_recommendation(self, 
+    def generate_credit_decision(self, 
                                      technical_signal: str, 
                                      technical_confidence: float,
                                      fundamental_score: float, 
@@ -373,7 +367,7 @@ class RiskAgent:
         fund_weight = 0.4
         risk_weight = 0.2
         
-        tech_score = 80 if technical_signal == "BULLISH" else 20 if technical_signal == "BEARISH" else 50
+        tech_score = 80 if technical_signal == "LOW DEFAULT RISK" else 20 if technical_signal == "HIGH DEFAULT RISK" else 50
         tech_score *= technical_confidence
         
         risk_adjusted_score = 100 - risk_score
@@ -382,71 +376,80 @@ class RiskAgent:
                          fundamental_score * fund_weight + 
                          risk_adjusted_score * risk_weight)
         
-        if combined_score >= 70:
-            action = "STRONG_BUY"
-            time_horizon = "3-6 months"
-        elif combined_score >= 60:
-            action = "BUY"
-            time_horizon = "1-3 months"
+        if combined_score >= 60:
+            action = "APPROVED"
         elif combined_score >= 40:
-            action = "HOLD"
-            time_horizon = "Monitor"
-        elif combined_score >= 30:
-            action = "SELL"
-            time_horizon = "1-2 weeks"
+            action = "CONDITIONAL"
         else:
-            action = "STRONG_SELL"
-            time_horizon = "Immediate"
+            action = "REJECTED"
         
         confidence = min(technical_confidence + 0.2, 1.0)
-        
-        reasoning = f"Technical: {technical_signal} ({technical_confidence:.1%}), "
-        reasoning += f"Fundamental Score: {fundamental_score:.0f}, "
-        reasoning += f"Risk Score: {risk_score:.0f}"
+
+        advocate_view = self._build_advocate_view(technical_signal, fundamental_score)
+        auditor_view = self._build_risk_auditor_view(risk_score, technical_signal)
+        reasoning = (
+            f"The Advocate Agent highlighted {advocate_view}, BUT the Risk Auditor flagged {auditor_view}. "
+            f"Therefore, the committee decided to {action.lower()} the request with terms calibrated to the borrower profile. "
+            "This decision reflects a balanced XAI review of repayment capacity, operating momentum, and downside protection."
+        )
         
         return {
             "action": action,
             "confidence": confidence,
-            "reasoning": reasoning,
-            "time_horizon": time_horizon
+            "reasoning": reasoning
         }
+
+    def _build_advocate_view(self, technical_signal: str, fundamental_score: float) -> str:
+        if technical_signal == "LOW DEFAULT RISK" and fundamental_score >= 60:
+            return "supportive operating momentum and enough financial strength to justify credit availability"
+        if fundamental_score >= 60:
+            return "a comparatively resilient fundamental profile despite mixed market signals"
+        if technical_signal == "LOW DEFAULT RISK":
+            return "improving financial-health momentum that supports a lending case"
+        return "the parts of the profile that remain serviceable under a controlled structure"
+
+    def _build_risk_auditor_view(self, risk_score: float, technical_signal: str) -> str:
+        if risk_score >= 70 or technical_signal == "HIGH DEFAULT RISK":
+            return "elevated default risk and limited tolerance for weaker liquidity or cash-flow shocks"
+        if risk_score >= 45:
+            return "moderate downside risk that requires covenants and closer monitoring"
+        return "residual execution risk that still warrants disciplined reporting and covenant controls"
     
-    def calculate_position_size(self, risk_score: float, confidence: float) -> float:
-        base_size = 10.0
+    def calculate_loan_amount(self, risk_score: float, confidence: float) -> float:
+        base_size = 50.0  # $50M base
         
         risk_multiplier = max(0.2, (100 - risk_score) / 100)
         confidence_multiplier = confidence
         
         position_size = base_size * risk_multiplier * confidence_multiplier
         
-        return min(max(position_size, 1.0), 25.0)
+        return min(max(position_size, 5.0), 100.0)
     
-    def calculate_price_targets(self, 
-                               current_price: float, 
-                               signal: str, 
-                               risk_score: float) -> Tuple[float, float]:
-        if not current_price:
-            return None, None
+    def calculate_loan_terms(self, 
+                           signal: str, 
+                           risk_score: float) -> Tuple[str, List[str]]:
         
-        stop_loss_pct = 0.05 + (risk_score / 100) * 0.15
-        
-        if signal == "BULLISH":
-            target_pct = 0.15 + (1 - risk_score / 100) * 0.15
-        elif signal == "BEARISH":
-            target_pct = -0.10
+        if signal == "LOW DEFAULT RISK":
+            tenor = "60 months"
+            covenants = ["Maintain DSCR > 1.25", "Quarterly Financial Reporting"]
+        elif signal == "HIGH DEFAULT RISK":
+            tenor = "12 months"
+            covenants = ["Maintain DSCR > 1.50", "Monthly Financial Reporting", "No additional debt"]
         else:
-            target_pct = 0.05
+            tenor = "36 months"
+            covenants = ["Maintain DSCR > 1.35", "Quarterly Financial Reporting"]
+            
+        if risk_score > 60:
+            covenants.append("Pledge of specific assets")
+            tenor = "24 months"
         
-        stop_loss = current_price * (1 - stop_loss_pct)
-        target_price = current_price * (1 + target_pct)
-        
-        return round(stop_loss, 2), round(target_price, 2)
+        return tenor, covenants
     
     def identify_key_risks(self, tech_data: Dict, fund_data: Dict, risk_data: Dict) -> List[str]:
         risks = []
         
-        if tech_data.get("trading_signals", {}).get("overall_signal") == "BEARISH":
-            risks.append("Negative technical momentum")
+        if tech_data.get("trading_signals", {}).get("overall_signal") == "HIGH DEFAULT RISK":
+            risks.append("Negative financial health momentum")
         
         fund_score = fund_data.get("fundamental_score", 50)
         if fund_score < 40:
@@ -462,47 +465,26 @@ class RiskAgent:
         
         return risks
     
-    def generate_portfolio_allocation(self, recommendations: Dict[str, Any]) -> Dict[str, Any]:
-        total_allocation = 0
-        allocations = {}
+    def generate_committee_resolution(self, recommendations: Dict[str, Any]) -> Dict[str, Any]:
+        actions = [rec["committee_decision"] for rec in recommendations.values()]
         
-        for symbol, rec in recommendations.items():
-            if rec["recommendation"] in ["STRONG_BUY", "BUY"]:
-                allocations[symbol] = rec["position_size"]
-                total_allocation += rec["position_size"]
+        approve_count = sum(1 for action in actions if action == "APPROVED")
+        reject_count = sum(1 for action in actions if action == "REJECTED")
+        conditional_count = sum(1 for action in actions if action == "CONDITIONAL")
         
-        if total_allocation > 100:
-            for symbol in allocations:
-                allocations[symbol] = (allocations[symbol] / total_allocation) * 100
-        
-        cash_allocation = max(0, 100 - sum(allocations.values()))
-        
-        return {
-            "stock_allocations": allocations,
-            "cash_allocation": cash_allocation,
-            "total_invested": sum(allocations.values())
-        }
-    
-    def generate_overall_strategy(self, recommendations: Dict[str, Any]) -> Dict[str, Any]:
-        actions = [rec["recommendation"] for rec in recommendations.values()]
-        
-        buy_count = sum(1 for action in actions if action in ["BUY", "STRONG_BUY"])
-        sell_count = sum(1 for action in actions if action in ["SELL", "STRONG_SELL"])
-        hold_count = sum(1 for action in actions if action == "HOLD")
-        
-        if buy_count > sell_count:
-            strategy = "AGGRESSIVE_GROWTH"
-        elif sell_count > buy_count:
-            strategy = "DEFENSIVE"
+        if approve_count > reject_count:
+            strategy = "AGGRESSIVE_LENDING"
+        elif reject_count > approve_count:
+            strategy = "DEFENSIVE_LENDING"
         else:
-            strategy = "BALANCED"
+            strategy = "BALANCED_PORTFOLIO"
         
         return {
             "strategy": strategy,
-            "buy_signals": buy_count,
-            "sell_signals": sell_count,
-            "hold_signals": hold_count,
-            "market_outlook": "BULLISH" if buy_count > sell_count else "BEARISH" if sell_count > buy_count else "NEUTRAL"
+            "approve_signals": approve_count,
+            "reject_signals": reject_count,
+            "conditional_signals": conditional_count,
+            "market_outlook": "LOW DEFAULT RISK" if approve_count > reject_count else "HIGH DEFAULT RISK" if reject_count > approve_count else "NEUTRAL"
         }
     
     def generate_risk_management_plan(self, results: Dict[str, Any]) -> Dict[str, Any]:
@@ -511,25 +493,24 @@ class RiskAgent:
         
         plan = {
             "position_limits": {
-                "max_single_position": "25%",
-                "max_sector_exposure": "40%",
-                "cash_reserve": "10-20%"
+                "max_single_exposure": "25%",
+                "max_sector_exposure": "40%"
             },
-            "stop_loss_strategy": "Implement trailing stops for all positions",
-            "rebalancing_frequency": "Monthly review, quarterly rebalancing",
+            "covenant_strategy": "Implement tight financial covenants for high risk profiles",
+            "review_frequency": "Monthly review, quarterly reporting",
             "risk_monitoring": [
-                "Daily P&L monitoring",
-                "Weekly portfolio risk assessment",
-                "Monthly correlation analysis"
+                "Monthly financial reporting monitoring",
+                "Quarterly debt servicing assessment",
+                "Annual comprehensive review"
             ]
         }
         
         risk_level = portfolio_risk.get("risk_level", "MODERATE")
         if risk_level in ["HIGH", "VERY_HIGH"]:
             plan["immediate_actions"] = [
-                "Reduce position sizes",
-                "Implement tighter stop losses",
-                "Consider hedging strategies"
+                "Reduce loan amounts",
+                "Implement stricter covenants",
+                "Require additional collateral"
             ]
         
         return plan
