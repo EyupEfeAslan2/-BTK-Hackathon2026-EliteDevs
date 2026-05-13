@@ -1,21 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FiSearch, FiCpu } from 'react-icons/fi';
 import TerminalLoading from './components/TerminalLoading';
 import Dashboard from './components/Dashboard';
 import CompanyCombobox, { TOP_50_COMPANIES } from './components/CompanyCombobox';
+import ThemeToggle from './components/ThemeToggle';
+import { useThemeStore } from './store/themeStore';
 
 import './App.css';
 
 function App() {
   const [symbolInput, setSymbolInput] = useState('');
+  const [analyzedTicker, setAnalyzedTicker] = useState('');
   const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'error'
   const [data, setData] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const { isDark } = useThemeStore();
 
   // We track two sub-states during 'analyzing' to wait for BOTH API and Terminal Animation to finish
   const [apiDone, setApiDone] = useState(false);
   const [terminalDone, setTerminalDone] = useState(false);
+
+  // Apply/remove dark mode class to document root
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
 
   const normalizeCompanyName = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
@@ -40,6 +53,7 @@ function App() {
     setTerminalDone(false);
 
     const symbol = resolveTicker(symbolInput);
+    setAnalyzedTicker(symbol);
 
     try {
       const response = await axios.post('http://localhost:3030/api/v1/analyze', {
@@ -70,57 +84,60 @@ function App() {
   }, [appState, apiDone, terminalDone]);
 
   return (
-    <div className="min-h-screen bg-[#050508] text-slate-300 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+    <div className="min-h-screen bg-[#050508] dark:bg-[#050508] bg-white dark:text-slate-300 text-slate-900 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 dark:selection:bg-emerald-500/30 dark:selection:text-emerald-200 transition-colors duration-300">
       
       {/* Top Navigation / Search Bar */}
-      <nav className="sticky top-0 z-50 border-b border-emerald-500/20 bg-[#0a0a0f]/80 backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10">
+      <nav className="sticky top-0 z-50 border-b border-emerald-500/20 dark:border-emerald-500/20 bg-white dark:bg-[#0a0a0f]/80 dark:backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10 dark:shadow-emerald-900/10 transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           
           {/* Logo / Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded border border-emerald-500/40 bg-emerald-950/50 flex items-center justify-center cyber-glow">
-              <FiCpu className="text-emerald-400 text-xl" />
+            <div className="w-10 h-10 rounded border border-emerald-500/40 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center cyber-glow">
+              <FiCpu className="text-emerald-600 dark:text-emerald-400 text-xl" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-widest bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent font-mono">
+              <h1 className="text-xl font-bold tracking-widest bg-gradient-to-r from-emerald-600 dark:from-emerald-400 to-cyan-600 dark:to-cyan-400 bg-clip-text text-transparent font-mono">
                 SOC_ORACLE
               </h1>
-              <p className="text-[10px] uppercase tracking-widest text-emerald-500/60 font-mono">
+              <p className="text-[10px] uppercase tracking-widest text-emerald-700 dark:text-emerald-500/60 font-mono">
                 B2B Financial Risk Gateway
               </p>
             </div>
           </div>
 
-          {/* Search Form */}
-          <form onSubmit={handleAnalyze} className="w-full md:w-auto flex justify-center md:justify-end">
-            <CompanyCombobox 
-              onSymbolChange={setSymbolInput} 
-              disabled={appState === 'analyzing'} 
-            />
-          </form>
+          {/* Search Form + Theme Toggle */}
+          <div className="w-full md:w-auto flex justify-center md:justify-end gap-3 items-center">
+            <form onSubmit={handleAnalyze} className="flex justify-center md:justify-end">
+              <CompanyCombobox 
+                onSymbolChange={setSymbolInput} 
+                disabled={appState === 'analyzing'} 
+              />
+            </form>
+            <ThemeToggle />
+          </div>
 
         </div>
       </nav>
 
       {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-6 py-12 relative">
+      <main className="max-w-7xl mx-auto px-6 py-12 relative transition-colors duration-300">
         
         {/* Background Decorative Elements */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute top-1/4 -left-64 w-[500px] h-[500px] bg-emerald-600/5 rounded-full blur-[120px]" />
-          <div className="absolute bottom-1/4 -right-64 w-[500px] h-[500px] bg-cyan-600/5 rounded-full blur-[120px]" />
+          <div className="absolute top-1/4 -left-64 w-[500px] h-[500px] bg-emerald-600/5 dark:bg-emerald-600/5 rounded-full blur-[120px]" />
+          <div className="absolute bottom-1/4 -right-64 w-[500px] h-[500px] bg-cyan-600/5 dark:bg-cyan-600/5 rounded-full blur-[120px]" />
         </div>
 
         <div className="relative z-10">
           {appState === 'idle' && (
             <div className="h-[60vh] flex flex-col items-center justify-center text-center animate-fade-in">
-              <div className="mb-6 p-4 rounded-full bg-emerald-500/5 border border-emerald-500/10">
-                <FiCpu className="text-emerald-500/50 text-6xl" />
+              <div className="mb-6 p-4 rounded-full bg-emerald-100 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/10">
+                <FiCpu className="text-emerald-600 dark:text-emerald-500/50 text-6xl" />
               </div>
-              <h2 className="text-3xl font-mono text-emerald-50 mb-4 tracking-tight">
+              <h2 className="text-3xl font-mono text-emerald-900 dark:text-emerald-50 mb-4 tracking-tight">
                 AWAITING TARGET INPUT
               </h2>
-              <p className="max-w-md text-slate-500 font-mono text-sm leading-relaxed">
+              <p className="max-w-md text-emerald-700 dark:text-slate-500 font-mono text-sm leading-relaxed">
                 Enter a financial ticker symbol above to initialize multi-agent risk assessment and compliance scanning protocol.
               </p>
             </div>
@@ -139,7 +156,7 @@ function App() {
               {appState === 'error' && (
                 <button 
                   onClick={() => setAppState('idle')}
-                  className="mt-6 px-4 py-2 border border-red-500/50 text-red-400 hover:bg-red-500/10 rounded font-mono text-sm transition-colors animate-fade-in"
+                  className="mt-6 px-4 py-2 border border-red-500/50 dark:border-red-500/50 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 rounded font-mono text-sm transition-colors animate-fade-in"
                 >
                   ACKNOWLEDGE & RESET
                 </button>
@@ -148,7 +165,7 @@ function App() {
           )}
 
           {appState === 'results' && (data || errorMsg) && (
-            <Dashboard data={data} error={errorMsg} />
+            <Dashboard data={data} error={errorMsg} ticker={analyzedTicker} />
           )}
         </div>
       </main>
