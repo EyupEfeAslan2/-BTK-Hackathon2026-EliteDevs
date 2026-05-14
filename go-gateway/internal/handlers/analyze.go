@@ -38,29 +38,34 @@ func HandleAnalyze(c *fiber.Ctx) error {
 
 	cacheKey := generateCacheKey(req.Symbols, req.Period)
 
-	// Check SQLite cache
-	var responseJSON string
-	var createdAt time.Time
+	// Bypass cache when requested_amount is provided (What-If simulation)
+	if req.RequestedAmount == "" {
+		// Check SQLite cache
+		var responseJSON string
+		var createdAt time.Time
 
-	err := db.DB.QueryRow("SELECT response_json, created_at FROM analyses WHERE ticker = ?", cacheKey).Scan(&responseJSON, &createdAt)
+		err := db.DB.QueryRow("SELECT response_json, created_at FROM analyses WHERE ticker = ?", cacheKey).Scan(&responseJSON, &createdAt)
 
-	if err == nil {
-		// Record exists, check if it is less than 24 hours old
-		if time.Since(createdAt) < 24*time.Hour {
-			fmt.Printf("\033[32m[Gateway] Cache hit for %v over period '%s'. Returning instantly.\033[0m\n", req.Symbols, req.Period)
+		if err == nil {
+			// Record exists, check if it is less than 24 hours old
+			if time.Since(createdAt) < 24*time.Hour {
+				fmt.Printf("\033[32m[Gateway] Cache hit for %v over period '%s'. Returning instantly.\033[0m\n", req.Symbols, req.Period)
 
-			var responseData models.AnalyzeResponse
-			if err := json.Unmarshal([]byte(responseJSON), &responseData); err == nil {
-				c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
-				return c.SendString(responseJSON)
-			} else {
-				log.Printf("Unmarshal error: %v", err)
+				var responseData models.AnalyzeResponse
+				if err := json.Unmarshal([]byte(responseJSON), &responseData); err == nil {
+					c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSONCharsetUTF8)
+					return c.SendString(responseJSON)
+				} else {
+					log.Printf("Unmarshal error: %v", err)
+				}
+				// If unmarshaling fails, proceed to call AI worker
 			}
-			// If unmarshaling fails, proceed to call AI worker
+		} else if err != sql.ErrNoRows {
+			// Log error but proceed to fetch from AI worker
+			fmt.Printf("Error querying cache: %v\n", err)
 		}
-	} else if err != sql.ErrNoRows {
-		// Log error but proceed to fetch from AI worker
-		fmt.Printf("Error querying cache: %v\n", err)
+	} else {
+		fmt.Printf("\033[33m[Gateway] What-If simulation for %v with requested_amount=%s. Bypassing cache.\033[0m\n", req.Symbols, req.RequestedAmount)
 	}
 
 	// Mock architectural layer for hackathon flair
@@ -86,4 +91,64 @@ func HandleAnalyze(c *fiber.Ctx) error {
 
 	// Return the JSON directly to the frontend
 	return c.JSON(resp)
+}
+
+func HandleHistory(c *fiber.Ctx) error {
+	rows, err := db.DB.Query(`
+		SELECT ticker, response_json, created_at
+		FROM analyses
+		ORDER BY created_at DESC
+		LIMIT 10
+	`)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+	defer rows.Close()
+
+	history := make([]models.HistoryItem, 0, 10)
+
+	for rows.Next() {
+		var ticker string
+		var responseJSON string
+		var createdAt string
+
+		if err := rows.Scan(&ticker, &responseJSON, &createdAt); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		committeeDecision := extractCommitteeDecision(responseJSON)
+		history = append(history, models.HistoryItem{
+			Ticker:            ticker,
+			CreatedAt:         createdAt,
+			CommitteeDecision: committeeDecision,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(history)
+}
+
+func extractCommitteeDecision(responseJSON string) string {
+	var direct models.AnalyzeResponse
+	if err := json.Unmarshal([]byte(responseJSON), &direct); err == nil && direct.CommitteeDecision != "" {
+		return direct.CommitteeDecision
+	}
+
+	var wrapped struct {
+		CreditCommitteeMemo models.AnalyzeResponse `json:"credit_committee_memo"`
+	}
+	if err := json.Unmarshal([]byte(responseJSON), &wrapped); err == nil && wrapped.CreditCommitteeMemo.CommitteeDecision != "" {
+		return wrapped.CreditCommitteeMemo.CommitteeDecision
+	}
+
+	return "UNKNOWN"
 }

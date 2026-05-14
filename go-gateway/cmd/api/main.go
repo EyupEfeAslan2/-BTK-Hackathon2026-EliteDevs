@@ -28,6 +28,7 @@ func main() {
 
 	// Mount a POST route
 	app.Post("/api/v1/analyze", handlers.HandleAnalyze)
+	app.Get("/history", handlers.HandleHistory)
 
 	// ASCII Banner for EliteDevs AI Gateway
 	banner := `

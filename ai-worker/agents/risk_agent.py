@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 from crewai import Agent, Task
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 from core.gemini import get_gemini
 
 logger = logging.getLogger(__name__)
@@ -40,10 +40,14 @@ class RiskAgent:
 
             For the "justification_summary" field, write a human-readable 2-3 sentence Explainable AI narrative. It MUST explicitly summarize the debate between agents, for example: "The Advocate Agent highlighted steady revenue, BUT the Risk Auditor flagged tight liquidity margins. Therefore, the committee decided to...". Do not list raw numbers or scores as the justification_summary.
 
+            Include "agent_votes" as a JSON array. Each item MUST contain "agent_name", "vote", and "brief_reason". Use exactly these agents: "Risk Auditor", "Advocate", "Compliance". Votes MUST be one of "APPROVE", "REJECT", or "CONDITIONAL". Each brief_reason MUST be one short sentence based on the debate.
+
+            Include "raw_telemetry" as a JSON object containing the raw yfinance metrics used by the agents, including keys such as "total_debt", "free_cash_flow", and "current_ratio".
+
             CRITICAL: OUTPUT ONLY RAW VALID JSON. DO NOT WRAP IN MARKDOWN. DO NOT USE ```json.
             """,
             agent=self.agent,
-            expected_output="Comprehensive credit risk report with committee decisions, default risk metrics, and recommended loan terms"
+            expected_output="Raw JSON credit risk report with committee_decision, default_risk_level, recommended_loan_terms, justification_summary, raw_telemetry, and agent_votes"
         )
     
     def calculate_risk_metrics(self, symbols: List[str], stock_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -125,7 +129,8 @@ class RiskAgent:
     
     def generate_credit_decisions(self, 
                                           analysis_results: Dict[str, Any], 
-                                          risk_assessment: Dict[str, Any]) -> Dict[str, Any]:
+                                          risk_assessment: Dict[str, Any],
+                                          requested_amount: Optional[str] = None) -> Dict[str, Any]:
         try:
             symbols = analysis_results.get("symbols", [])
             technical_analysis = analysis_results.get("technical_analysis", {}).get("technical_analysis", {})
@@ -170,8 +175,47 @@ class RiskAgent:
                         "covenants": covenants
                     },
                     "default_risk_level": self.classify_risk_level(risk_score),
-                    "key_risks": self.identify_key_risks(tech_data, fund_data, risk_data)
+                    "key_risks": self.identify_key_risks(tech_data, fund_data, risk_data),
+                    "agent_votes": self.generate_agent_votes(
+                        recommendation["action"],
+                        technical_signal,
+                        fundamental_score,
+                        risk_score
+                    )
                 }
+
+                # What-If override: if requested_amount exceeds computed max, force REJECT/CONDITIONAL
+                if requested_amount:
+                    try:
+                        req_val = float(requested_amount.replace("$", "").replace("M", "").replace(",", "").strip())
+                        if req_val > max_amount * 1.5:
+                            recommendations[symbol]["committee_decision"] = "REJECTED"
+                            recommendations[symbol]["justification_summary"] = (
+                                f"The user requested a loan of {requested_amount}, which exceeds the computed maximum capacity of ${max_amount:.1f}M by more than 50%. "
+                                f"The Risk Auditor flagged this as unsupportable given current liquidity and cash flow. REJECTED."
+                            )
+                            recommendations[symbol]["agent_votes"] = self.generate_agent_votes(
+                                "REJECTED",
+                                technical_signal,
+                                fundamental_score,
+                                risk_score,
+                                override_reason=f"Requested amount exceeds computed capacity of ${max_amount:.1f}M."
+                            )
+                        elif req_val > max_amount:
+                            recommendations[symbol]["committee_decision"] = "CONDITIONAL"
+                            recommendations[symbol]["justification_summary"] = (
+                                f"The user requested a loan of {requested_amount}, which exceeds the computed maximum capacity of ${max_amount:.1f}M. "
+                                f"The committee grants CONDITIONAL approval subject to additional collateral and tighter covenants."
+                            )
+                            recommendations[symbol]["agent_votes"] = self.generate_agent_votes(
+                                "CONDITIONAL",
+                                technical_signal,
+                                fundamental_score,
+                                risk_score,
+                                override_reason=f"Requested amount is above computed capacity of ${max_amount:.1f}M."
+                            )
+                    except ValueError:
+                        pass
             
             return {
                 "individual_decisions": recommendations,
@@ -183,7 +227,7 @@ class RiskAgent:
             logger.error(f"Error generating recommendations: {str(e)}")
             return {"error": str(e), "status": "failed"}
     
-    def execute_risk_assessment(self, analysis_results: Dict[str, Any]) -> Dict[str, Any]:
+    def execute_risk_assessment(self, analysis_results: Dict[str, Any], requested_amount: Optional[str] = None) -> Dict[str, Any]:
         logger.info("Starting comprehensive risk assessment")
         
         symbols = analysis_results.get("symbols", [])
@@ -221,7 +265,7 @@ class RiskAgent:
         portfolio_risk = self.assess_portfolio_risk(symbols, risk_metrics.get("risk_metrics", {}))
         results["portfolio_risk"] = portfolio_risk
         
-        recommendations = self.generate_credit_decisions(analysis_results, risk_metrics)
+        recommendations = self.generate_credit_decisions(analysis_results, risk_metrics, requested_amount=requested_amount)
         results["recommendations"] = recommendations
         
         risk_management = self.generate_risk_management_plan(results)
@@ -398,6 +442,47 @@ class RiskAgent:
             "confidence": confidence,
             "reasoning": reasoning
         }
+
+    def generate_agent_votes(
+            self,
+            action: str,
+            technical_signal: str,
+            fundamental_score: float,
+            risk_score: float,
+            override_reason: Optional[str] = None) -> List[Dict[str, str]]:
+
+        final_vote = self._normalize_vote(action)
+        advocate_vote = "APPROVE" if fundamental_score >= 60 or technical_signal == "LOW DEFAULT RISK" else "CONDITIONAL"
+        risk_vote = "REJECT" if risk_score >= 70 or technical_signal == "HIGH DEFAULT RISK" else "CONDITIONAL" if risk_score >= 45 else "APPROVE"
+        compliance_vote = "CONDITIONAL" if final_vote == "CONDITIONAL" else "APPROVE" if final_vote == "APPROVE" else "REJECT"
+
+        risk_reason = override_reason or self._build_risk_auditor_view(risk_score, technical_signal).capitalize() + "."
+
+        return [
+            {
+                "agent_name": "Risk Auditor",
+                "vote": risk_vote,
+                "brief_reason": risk_reason
+            },
+            {
+                "agent_name": "Advocate",
+                "vote": advocate_vote,
+                "brief_reason": self._build_advocate_view(technical_signal, fundamental_score).capitalize() + "."
+            },
+            {
+                "agent_name": "Compliance",
+                "vote": compliance_vote,
+                "brief_reason": "No blocking compliance issue was identified in the automated review."
+            }
+        ]
+
+    def _normalize_vote(self, action: str) -> str:
+        normalized = (action or "CONDITIONAL").upper()
+        if normalized in ("APPROVED", "APPROVE"):
+            return "APPROVE"
+        if normalized in ("REJECTED", "REJECT"):
+            return "REJECT"
+        return "CONDITIONAL"
 
     def _build_advocate_view(self, technical_signal: str, fundamental_score: float) -> str:
         if technical_signal == "LOW DEFAULT RISK" and fundamental_score >= 60:

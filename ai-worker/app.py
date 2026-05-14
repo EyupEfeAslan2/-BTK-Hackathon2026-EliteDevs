@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
@@ -24,6 +24,7 @@ class AnalyzeRequest(BaseModel):
     symbols: List[str] = Field(..., min_length=1, description="Stock symbols to analyze.")
     period: str = Field(default="1y", description="Analysis period supported by the data provider.")
     use_crew: bool = Field(default=False, description="Run the CrewAI workflow instead of direct orchestration.")
+    requested_amount: Optional[str] = Field(default=None, description="Optional loan amount for What-If simulation.")
 
     @field_validator("symbols")
     @classmethod
@@ -46,6 +47,7 @@ def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
             symbols=request.symbols,
             analysis_period=request.period,
             use_crew=request.use_crew,
+            requested_amount=request.requested_amount,
         )
     except ValueError as exc:
         logger.warning("Analysis setup failed: %s", exc)

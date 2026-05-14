@@ -3,7 +3,7 @@ import json
 import math
 from crewai import Crew, Process
 from functools import lru_cache
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from core.config import settings
 from core.gemini import get_gemini
@@ -30,7 +30,7 @@ class FinancialAnalysisOrchestrator:
         logger.info("Financial Analysis Orchestrator initialized successfully")
         logger.info(f"Available LLM providers: {get_gemini()}")
     
-    def create_analysis_crew(self, symbols: List[str], analysis_period: str = "1y") -> Crew:
+    def create_analysis_crew(self, symbols: List[str], analysis_period: str = "1y", requested_amount: Optional[str] = None) -> Crew:
         raw_json_instruction = "CRITICAL: OUTPUT ONLY RAW VALID JSON. DO NOT WRAP IN MARKDOWN. DO NOT USE ```json."
         data_task = self.data_agent.create_data_collection_task(symbols, analysis_period)
         
@@ -42,6 +42,8 @@ class FinancialAnalysisOrchestrator:
         
         risk_task = self.risk_agent.create_risk_assessment_task({"symbols": symbols})
         risk_task.description = f"{risk_task.description}\n\n{raw_json_instruction}"
+        if requested_amount:
+            risk_task.description += f"\n\nThe user is specifically requesting a loan of {requested_amount}. You MUST evaluate if their financial telemetry (liquidity, cash flow) can support this exact debt burden. If it is too high, you MUST REJECT or severely CONDITIONAL the request."
         risk_task.context = [data_task, analysis_task, compliance_task]
         
         crew = Crew(
@@ -61,7 +63,8 @@ class FinancialAnalysisOrchestrator:
     def analyze_stocks(self, 
                       symbols: List[str], 
                       analysis_period: str = "1y",
-                      use_crew: bool = False) -> Dict[str, Any]:
+                      use_crew: bool = False,
+                      requested_amount: Optional[str] = None) -> Dict[str, Any]:
         
         logger.info(f"Starting financial analysis for symbols: {symbols}")
         
@@ -69,9 +72,9 @@ class FinancialAnalysisOrchestrator:
         
         try:
             if use_crew:
-                result = self.analyze_with_crew(symbols, analysis_period)
+                result = self.analyze_with_crew(symbols, analysis_period, requested_amount=requested_amount)
             else:
-                result = self.analyze_direct(symbols, analysis_period)
+                result = self.analyze_direct(symbols, analysis_period, requested_amount=requested_amount)
 
             return self.make_json_safe(result)
                 
@@ -86,8 +89,8 @@ class FinancialAnalysisOrchestrator:
             end_time = datetime.now()
             logger.info(f"Analysis completed in {(end_time - start_time).total_seconds():.2f} seconds")
     
-    def analyze_with_crew(self, symbols: List[str], analysis_period: str) -> Dict[str, Any]:
-        crew = self.create_analysis_crew(symbols, analysis_period)
+    def analyze_with_crew(self, symbols: List[str], analysis_period: str, requested_amount: Optional[str] = None) -> Dict[str, Any]:
+        crew = self.create_analysis_crew(symbols, analysis_period, requested_amount=requested_amount)
         
         result = crew.kickoff()
         
@@ -107,7 +110,7 @@ class FinancialAnalysisOrchestrator:
             "timestamp": datetime.now().isoformat()
         }
     
-    def analyze_direct(self, symbols: List[str], analysis_period: str) -> Dict[str, Any]:
+    def analyze_direct(self, symbols: List[str], analysis_period: str, requested_amount: Optional[str] = None) -> Dict[str, Any]:
         logger.info("Step 1: Collecting financial data...")
         collected_data = self.data_agent.execute_data_collection(symbols, analysis_period)
         
@@ -129,7 +132,7 @@ class FinancialAnalysisOrchestrator:
             }
         
         logger.info("Step 3: Conducting risk assessment...")
-        risk_results = self.risk_agent.execute_risk_assessment(analysis_results)
+        risk_results = self.risk_agent.execute_risk_assessment(analysis_results, requested_amount=requested_amount)
         
         if "error" in risk_results:
             return {
@@ -159,7 +162,7 @@ class FinancialAnalysisOrchestrator:
                 "legal_summary": compliance_results.get("legal_summary", "No data")
             },
             "credit_committee_memo": self.generate_credit_committee_memo(
-                symbols, collected_data, analysis_results, risk_results
+                symbols, collected_data, analysis_results, risk_results, compliance_results
             ),
             "method": "direct_orchestration",
             "status": "success",
@@ -172,7 +175,8 @@ class FinancialAnalysisOrchestrator:
                                   symbols: List[str],
                                   data: Dict[str, Any],
                                   analysis: Dict[str, Any], 
-                                  risk: Dict[str, Any]) -> Dict[str, Any]:
+                                  risk: Dict[str, Any],
+                                  compliance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         
         # If no risk recommendations are available
         recommendations = risk.get("recommendations", {}).get("individual_decisions", {})
@@ -186,7 +190,25 @@ class FinancialAnalysisOrchestrator:
                     "tenor": "0 months",
                     "covenants": ["Requires manual underwriting"]
                 },
-                "justification_summary": "The Advocate Agent could not identify enough verified strengths to support an automated approval, BUT the Risk Auditor flagged the missing evidence as a material underwriting gap. Therefore, the committee decided to send the request to manual review until repayment capacity, liquidity, and covenant coverage can be confirmed."
+                "justification_summary": "The Advocate Agent could not identify enough verified strengths to support an automated approval, BUT the Risk Auditor flagged the missing evidence as a material underwriting gap. Therefore, the committee decided to send the request to manual review until repayment capacity, liquidity, and covenant coverage can be confirmed.",
+                "raw_telemetry": self.extract_raw_telemetry(symbols, data, analysis),
+                "agent_votes": [
+                    {
+                        "agent_name": "Risk Auditor",
+                        "vote": "CONDITIONAL",
+                        "brief_reason": "Missing underwriting evidence requires manual risk review."
+                    },
+                    {
+                        "agent_name": "Advocate",
+                        "vote": "CONDITIONAL",
+                        "brief_reason": "Potential credit support cannot be confirmed from available data."
+                    },
+                    {
+                        "agent_name": "Compliance",
+                        "vote": "CONDITIONAL",
+                        "brief_reason": "Manual compliance confirmation is required before approval."
+                    }
+                ]
             }
             
         # For a single symbol (most common use case in this app)
@@ -194,6 +216,11 @@ class FinancialAnalysisOrchestrator:
             symbol = symbols[0] if symbols else list(recommendations.keys())[0]
             rec = recommendations.get(symbol, {})
             
+            agent_votes = self.apply_compliance_vote(
+                rec.get("agent_votes", []),
+                compliance
+            )
+
             return {
                 "committee_decision": rec.get("committee_decision", "CONDITIONAL"),
                 "default_risk_level": rec.get("default_risk_level", "MEDIUM"),
@@ -202,7 +229,9 @@ class FinancialAnalysisOrchestrator:
                     "tenor": "0 months",
                     "covenants": ["Standard covenants apply"]
                 }),
-                "justification_summary": rec.get("justification_summary", "Decision based on automated review.")
+                "justification_summary": rec.get("justification_summary", "Decision based on automated review."),
+                "raw_telemetry": self.extract_raw_telemetry([symbol], data, analysis),
+                "agent_votes": agent_votes
             }
         
         # If multiple symbols are requested, aggregate them into a portfolio memo
@@ -216,8 +245,87 @@ class FinancialAnalysisOrchestrator:
                 "tenor": "Various",
                 "covenants": ["Portfolio covenants apply"]
             },
-            "justification_summary": f"Portfolio analysis for {len(symbols)} entities. Strategy: {overall_resolution.get('strategy', 'BALANCED_PORTFOLIO')}."
+            "justification_summary": f"Portfolio analysis for {len(symbols)} entities. Strategy: {overall_resolution.get('strategy', 'BALANCED_PORTFOLIO')}.",
+            "raw_telemetry": self.extract_raw_telemetry(symbols, data, analysis),
+            "agent_votes": [
+                {
+                    "agent_name": "Risk Auditor",
+                    "vote": "CONDITIONAL",
+                    "brief_reason": "Portfolio exposure requires diversified covenants and monitoring."
+                },
+                {
+                    "agent_name": "Advocate",
+                    "vote": "CONDITIONAL",
+                    "brief_reason": "A balanced portfolio structure can support selective lending."
+                },
+                {
+                    "agent_name": "Compliance",
+                    "vote": "CONDITIONAL",
+                    "brief_reason": "Each borrower requires entity-level compliance confirmation."
+                }
+            ]
         }
+
+    def extract_raw_telemetry(
+            self,
+            symbols: List[str],
+            data: Dict[str, Any],
+            analysis: Dict[str, Any]) -> Dict[str, Any]:
+
+        stocks = data.get("stock_data", {}).get("stocks", {})
+        fundamentals = analysis.get("fundamental_analysis", {}).get("fundamental_analysis", {})
+        telemetry = {}
+
+        for symbol in symbols:
+            stock = stocks.get(symbol, {})
+            info = stock.get("company_info", {}) if isinstance(stock, dict) else {}
+            fundamental = fundamentals.get(symbol, {}) if isinstance(fundamentals, dict) else {}
+            health = fundamental.get("financial_health", {}) if isinstance(fundamental, dict) else {}
+
+            telemetry[symbol] = {
+                "total_debt": health.get("total_debt", info.get("totalDebt")),
+                "free_cash_flow": health.get("free_cashflow", info.get("freeCashflow")),
+                "current_ratio": health.get("current_ratio", info.get("currentRatio")),
+                "quick_ratio": health.get("quick_ratio", info.get("quickRatio")),
+                "total_cash": health.get("total_cash", info.get("totalCash")),
+                "debt_to_equity": health.get("debt_to_equity", info.get("debtToEquity")),
+                "market_cap": stock.get("market_cap", info.get("marketCap")) if isinstance(stock, dict) else None,
+                "current_price": stock.get("current_price") if isinstance(stock, dict) else None,
+                "volume": stock.get("volume") if isinstance(stock, dict) else None,
+                "pe_ratio": stock.get("pe_ratio", info.get("trailingPE")) if isinstance(stock, dict) else None
+            }
+
+        return telemetry
+
+    def apply_compliance_vote(
+            self,
+            agent_votes: List[Dict[str, Any]],
+            compliance: Optional[Dict[str, Any]]) -> List[Dict[str, str]]:
+
+        votes = [
+            {
+                "agent_name": str(vote.get("agent_name", "")),
+                "vote": str(vote.get("vote", "CONDITIONAL")),
+                "brief_reason": str(vote.get("brief_reason", "Automated agent vote recorded."))
+            }
+            for vote in agent_votes
+            if isinstance(vote, dict)
+        ]
+
+        if not any(vote.get("agent_name") == "Compliance" for vote in votes):
+            votes.append({
+                "agent_name": "Compliance",
+                "vote": "APPROVE",
+                "brief_reason": "No blocking compliance issue was identified in the automated review."
+            })
+
+        if compliance and compliance.get("veto_flag"):
+            for vote in votes:
+                if vote.get("agent_name") == "Compliance":
+                    vote["vote"] = "REJECT"
+                    vote["brief_reason"] = compliance.get("legal_summary", "Compliance veto requires rejection.")[:180]
+
+        return votes
 
     def parse_crew_result(self, result: Any) -> Any:
         raw_result = getattr(result, "raw", result)

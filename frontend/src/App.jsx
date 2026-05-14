@@ -15,6 +15,8 @@ function App() {
   const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'error'
   const [data, setData] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [historyItems, setHistoryItems] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const { isDark } = useThemeStore();
 
   // We track two sub-states during 'analyzing' to wait for BOTH API and Terminal Animation to finish
@@ -30,6 +32,19 @@ function App() {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await axios.get('http://localhost:3030/history');
+        setHistoryItems(Array.isArray(response.data) ? response.data : []);
+      } catch (err) {
+        console.error('History fetch failed:', err);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
   const normalizeCompanyName = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   const resolveTicker = (value) => {
@@ -42,9 +57,8 @@ function App() {
     return (matched?.ticker || input).toUpperCase();
   };
 
-  const handleAnalyze = async (e) => {
-    e.preventDefault();
-    if (!symbolInput.trim()) return;
+  const runAnalyze = async (rawSymbol) => {
+    if (!rawSymbol.trim()) return;
 
     setAppState('analyzing');
     setData(null);
@@ -52,8 +66,10 @@ function App() {
     setApiDone(false);
     setTerminalDone(false);
 
-    const symbol = resolveTicker(symbolInput);
+    const symbol = resolveTicker(rawSymbol);
+    setSymbolInput(symbol);
     setAnalyzedTicker(symbol);
+    setHistoryOpen(false);
 
     try {
       const response = await axios.post('http://localhost:3030/api/v1/analyze', {
@@ -67,6 +83,16 @@ function App() {
       setErrorMsg(err.response?.data?.detail || err.message || "Failed to connect to the AI Gateway.");
       setAppState('error');
     }
+  };
+
+  const handleAnalyze = async (e) => {
+    e.preventDefault();
+    await runAnalyze(symbolInput);
+  };
+
+  const handleHistoryAnalyze = async (ticker) => {
+    const symbol = String(ticker || '').split('|')[0].split(',')[0].trim();
+    await runAnalyze(symbol);
   };
 
   const handleTerminalComplete = () => {
@@ -107,6 +133,44 @@ function App() {
 
           {/* Search Form + Theme Toggle */}
           <div className="w-full md:w-auto flex justify-center md:justify-end gap-3 items-center">
+            {historyItems.length > 0 ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen((open) => !open)}
+                  className="h-11 px-4 rounded-lg border border-slate-200 dark:border-emerald-500/30 bg-white dark:bg-emerald-500/10 text-slate-800 dark:text-emerald-300 font-mono text-xs font-semibold uppercase tracking-wide hover:bg-slate-50 dark:hover:bg-emerald-500/20 transition-colors"
+                >
+                  Recent Memos
+                </button>
+                {historyOpen ? (
+                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 dark:border-emerald-500/20 bg-white dark:bg-[#0b0f19] shadow-xl shadow-slate-900/10 dark:shadow-emerald-900/20 p-2">
+                    <div className="max-h-80 overflow-y-auto space-y-1">
+                      {historyItems.map((item) => {
+                        const symbol = String(item?.ticker || '').split('|')[0];
+                        return (
+                          <button
+                            key={`${item?.ticker}-${item?.created_at}`}
+                            type="button"
+                            onClick={() => handleHistoryAnalyze(item?.ticker)}
+                            className="w-full text-left rounded-lg px-3 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{symbol}</span>
+                              <span className="shrink-0 rounded border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase text-emerald-700 dark:text-emerald-300">
+                                {item?.committee_decision || 'UNKNOWN'}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[11px] font-mono text-slate-500 dark:text-slate-500 truncate">
+                              {item?.created_at || ''}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <form onSubmit={handleAnalyze} className="flex justify-center md:justify-end">
               <CompanyCombobox 
                 onSymbolChange={setSymbolInput} 
@@ -165,7 +229,7 @@ function App() {
           )}
 
           {appState === 'results' && (data || errorMsg) && (
-            <Dashboard data={data} error={errorMsg} ticker={analyzedTicker} />
+            <Dashboard data={data} error={errorMsg} ticker={analyzedTicker} onSimulationResult={(newData) => setData(newData)} />
           )}
         </div>
       </main>
