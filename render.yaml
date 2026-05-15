@@ -1,0 +1,26 @@
+services:
+
+  - type: web
+    name: btk-ai-worker-mock
+    env: docker
+    dockerContext: ./ai-worker
+    dockerfilePath: ./ai-worker/Dockerfile
+    plan: free
+    envVars:
+      - key: OPENROUTER_API_KEY
+        value: "dummy_mock_key_123" 
+      - key: DEFAULT_MODEL
+        value: "mock_model"
+
+  # 2. Frontend'in Konuşacağı Go Gateway
+  - type: web
+    name: btk-go-gateway
+    env: docker
+    dockerContext: ./go-gateway
+    dockerfilePath: ./go-gateway/Dockerfile
+    plan: free
+    envVars:
+      # Go, Render üzerindeki Python servisiyle konuşacak
+      # Render, servisler arası iletişimde port numarasını otomatik ayarlar
+      - key: AI_WORKER_URL
+        value: "https://btk-ai-worker.onrender.com"
