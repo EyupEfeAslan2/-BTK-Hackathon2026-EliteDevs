@@ -23,8 +23,13 @@ func main() {
 	// Add CORS middleware (allow all for hackathon)
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowMethods: "GET,POST,OPTIONS",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-Requested-With",
 	}))
+
+	app.Options("/*", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 
 	// Mount a POST route
 	app.Post("/api/v1/analyze", handlers.HandleAnalyze)
