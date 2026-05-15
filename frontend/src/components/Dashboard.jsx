@@ -138,7 +138,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
     if (!ticker) return;
     setSimulating(true);
     try {
-      const response = await axios.post('https://elitedevs-go-gateway.onrender.com/api/v1/analyze', {
+      const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
         symbols: [ticker],
         period: '1mo',
         requested_amount: String(customAmount),

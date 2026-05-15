@@ -35,7 +35,7 @@ function App() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await axios.get('https://elitedevs-go-gateway.onrender.com/history');
+        const response = await axios.get('https://btk-hackathon2026-elitedevs.onrender.com/history');
         setHistoryItems(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error('History fetch failed:', err);
@@ -72,7 +72,7 @@ function App() {
     setHistoryOpen(false);
 
     try {
-      const response = await axios.post('https://elitedevs-go-gateway.onrender.com/api/v1/analyze', {
+      const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
         symbols: [symbol],
         period: "1mo"
       });
