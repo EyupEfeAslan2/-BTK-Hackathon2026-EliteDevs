@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3030";;
+const API_BASE_URL = "https://btk-hackathon2026-elitedevs.onrender.com/"
 
 const client = axios.create({
   baseURL: API_BASE_URL,
