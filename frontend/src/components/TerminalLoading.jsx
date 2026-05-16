@@ -1,16 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStore } from '../store/themeStore';
 
+const AGENT_STEPS = [
+  "Initializing XAI Consensus Engine...",
+  "Risk Auditor: Analyzing cash flow & debt margins...",
+  "Advocate Agent: Evaluating market dominance & growth...",
+  "Compliance Agent: Scanning for covenant breaches...",
+  "Dialectical conflict detected. Resolving...",
+  "Formulating final credit memo..."
+];
 
+const FALLBACK_RECENT_SEARCHES = [
+  { ticker: 'AAPL', status: 'CONDITIONAL' },
+  { ticker: 'MSFT', status: 'REJECTED' },
+  { ticker: 'NVDA', status: 'APPROVED' }
+];
 
-const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sector }) => {
-  const { isDark } = useThemeStore();
+const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sector, recentSearches = [] }) => {
   const [logs, setLogs] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [agentStepIndex, setAgentStepIndex] = useState(0);
   const [hasHalted, setHasHalted] = useState(false);
 
   const finalSector = sector || 'Corporate';
   const displaySymbol = companyName || symbol || "UNKNOWN";
+  const recentAudits = recentSearches.length ? recentSearches : FALLBACK_RECENT_SEARCHES;
 
   const LOG_SEQUENCE = React.useMemo(() => [
     { time: 0.0, text: "Booting EliteDevs AI Gateway...", type: "system" },
@@ -19,15 +32,18 @@ const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sect
     { time: 2.1, text: "DataAgent: Fetching historical metrics...", type: "agent" },
     { time: 3.2, text: "DataAgent: Aggregating 10 years of financial statements...", type: "info" },
     { time: 4.5, text: "DataAgent: Metrics extracted successfully.", type: "success" },
-    { time: 5.4, text: "RiskAgent: Calculating Sharpe & VaR...", type: "agent" },
-    { time: 6.7, text: "RiskAgent: Simulating Monte Carlo scenarios (n=10,000)...", type: "info" },
-    { time: 7.9, text: "RiskAgent: Volatility profile stabilized.", type: "success" },
+    { time: 5.4, text: "RiskAuditor: Stress-testing DSCR & Liquidity Margins...", type: "agent" },
+    { time: 6.7, text: "RiskAuditor: Projecting cash-flow scenarios under macro-stress...", type: "info" },
+    { time: 7.9, text: "RiskAuditor: Debt-service capacity verification complete.", type: "success" },
     { time: 8.8, text: "ComplianceAgent: Scanning GDPR/KVKK databases for pending lawsuits...", type: "agent" },
     { time: 9.6, text: "ComplianceAgent: Cross-referencing SEC filings & global sanctions lists...", type: "info" },
     { time: 10.5, text: "ComplianceAgent: Legal scan complete. No critical violations found.", type: "success" },
     { time: 11.2, text: "Synthesizing intelligence...", type: "system" },
     { time: 12.0, text: "Consensus Reached.", type: "success" }
   ], [displaySymbol, finalSector]);
+
+  const isLoading = !hasHalted && !error && currentIndex < LOG_SEQUENCE.length;
+  const currentAgentStep = AGENT_STEPS[agentStepIndex];
 
   // Auto-scroll terminal
   useEffect(() => {
@@ -77,6 +93,16 @@ const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sect
     return () => clearTimeout(timer);
   }, [currentIndex, onComplete, apiDone, error, hasHalted, LOG_SEQUENCE]);
 
+  useEffect(() => {
+    if (!isLoading) return undefined;
+
+    const interval = setInterval(() => {
+      setAgentStepIndex((prev) => (prev + 1) % AGENT_STEPS.length);
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const getColorClass = (type) => {
     switch (type) {
       case 'system': return 'text-emerald-700 dark:text-slate-400';
@@ -88,7 +114,14 @@ const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sect
     }
   };
 
-
+  const getAuditStatusClass = (status) => {
+    switch (status) {
+      case 'REJECTED': return 'text-red-600 dark:text-red-400';
+      case 'CONDITIONAL': return 'text-amber-600 dark:text-amber-400';
+      case 'APPROVED': return 'text-emerald-600 dark:text-emerald-400';
+      default: return 'text-cyan-600 dark:text-cyan-400';
+    }
+  };
 
   return (
     <div className={`w-full max-w-6xl mx-auto rounded-lg overflow-hidden border ${error ? 'border-red-500/50 cyber-glow-red' : 'border-emerald-500/30 cyber-glow'} bg-white dark:bg-[#0a0a0f] font-mono shadow-2xl relative grid grid-cols-1 md:grid-cols-3 transition-colors duration-300`}>
@@ -130,6 +163,28 @@ const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sect
           <div className={`absolute w-24 h-24 rounded-full border-b border-l ${error ? 'border-red-500' : 'border-emerald-400'} animate-spin`} style={{ animationDuration: '2s', animationDirection: 'reverse' }}></div>
           {/* Biometric / Center dot */}
           <div className={`w-3 h-3 rounded-full ${error ? 'bg-red-500' : 'bg-cyan-400'} shadow-[0_0_10px_currentColor] animate-pulse`}></div>
+        </div>
+
+        <div className={`mt-6 border ${error ? 'border-red-500/20 bg-red-950/5 dark:bg-red-950/10' : 'border-emerald-500/20 bg-emerald-950/5 dark:bg-[#070b10]'} shadow-inner`}>
+          <div className={`flex items-center justify-between border-b px-3 py-2 ${error ? 'border-red-500/20 text-red-600 dark:text-red-400' : 'border-emerald-500/20 text-cyan-600 dark:text-cyan-400'}`}>
+            <div className="flex items-center gap-2">
+              <span className={`h-1.5 w-1.5 rounded-full ${error ? 'bg-red-500' : 'bg-cyan-400'} animate-pulse`}></span>
+              <span className="text-[10px] font-bold tracking-[0.25em]">RECENT_AUDITS</span>
+            </div>
+            <span className="text-[10px] text-emerald-700/60 dark:text-slate-600">LOG</span>
+          </div>
+          <div className="space-y-1 px-3 py-3">
+            {recentAudits.map((audit, index) => (
+              <div key={`${audit.ticker}-${audit.status}-${index}`} className="flex items-center gap-2 text-[11px] leading-5 opacity-75">
+                <span className="text-emerald-700/60 dark:text-slate-600">&gt;</span>
+                <span className="min-w-[44px] text-emerald-900 dark:text-slate-300">{audit.ticker}</span>
+                <span className="text-emerald-700/50 dark:text-slate-700">::</span>
+                <span className={`${getAuditStatusClass(audit.status)} font-semibold tracking-wider`}>
+                  {audit.status}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -178,8 +233,9 @@ const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sect
                 <span className="text-emerald-600 dark:text-slate-600 mr-4 w-[60px] flex-shrink-0 transition-colors duration-300">
                   {currentIndex === LOG_SEQUENCE.length - 1 && !apiDone ? "[WAIT]" : "[...s]"}
                 </span>
-                <span className="text-emerald-500 dark:text-emerald-500 animate-pulse">
-                  {currentIndex === LOG_SEQUENCE.length - 1 && !apiDone ? "Awaiting final consensus... █" : "█"}
+                <span className="text-emerald-500 dark:text-emerald-500">
+                  {currentIndex === LOG_SEQUENCE.length - 1 && !apiDone ? "Awaiting final consensus..." : currentAgentStep}
+                  <span className="ml-1 animate-pulse">_</span>
                 </span>
               </div>
             )}
@@ -198,4 +254,3 @@ const TerminalLoading = ({ onComplete, apiDone, error, symbol, companyName, sect
 };
 
 export default TerminalLoading;
-

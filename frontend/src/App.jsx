@@ -3,6 +3,7 @@ import axios from 'axios';
 import { FiSearch, FiCpu } from 'react-icons/fi';
 import TerminalLoading from './components/TerminalLoading';
 import Dashboard from './components/Dashboard';
+import BatchResultsTable from './components/BatchResultsTable';
 import CompanyCombobox, { TOP_50_COMPANIES } from './components/CompanyCombobox';
 import ThemeToggle from './components/ThemeToggle';
 import { useThemeStore } from './store/themeStore';
@@ -14,6 +15,8 @@ function App() {
   const [analyzedTicker, setAnalyzedTicker] = useState('');
   const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'error'
   const [data, setData] = useState(null);
+  const [batchResults, setBatchResults] = useState([]);
+  const [batchMode, setBatchMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [historyItems, setHistoryItems] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -62,21 +65,39 @@ function App() {
 
     setAppState('analyzing');
     setData(null);
+    setBatchResults([]);
     setErrorMsg('');
     setApiDone(false);
     setTerminalDone(false);
 
-    const symbol = resolveTicker(rawSymbol);
-    setSymbolInput(symbol);
-    setAnalyzedTicker(symbol);
+    const batchSymbols = rawSymbol
+      .split(',')
+      .map((symbol) => resolveTicker(symbol))
+      .filter(Boolean);
+    const isBatchRequest = batchMode && batchSymbols.length > 0;
+    const symbol = isBatchRequest ? batchSymbols[0] : resolveTicker(rawSymbol);
+
+    setSymbolInput(isBatchRequest ? batchSymbols.join(', ') : symbol);
+    setAnalyzedTicker(isBatchRequest ? batchSymbols.join(',') : symbol);
     setHistoryOpen(false);
 
     try {
-      const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
-        symbols: [symbol],
-        period: "1mo"
-      });
-      setData(response.data);
+      if (isBatchRequest) {
+        const responses = await Promise.all(batchSymbols.map(async (ticker) => {
+          const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
+            symbols: [ticker],
+            period: "1mo"
+          });
+          return { ticker, data: response.data };
+        }));
+        setBatchResults(responses);
+      } else {
+        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
+          symbols: [symbol],
+          period: "1mo"
+        });
+        setData(response.data);
+      }
       setApiDone(true);
     } catch (err) {
       console.error(err);
@@ -112,18 +133,27 @@ function App() {
   return (
     <div className="min-h-screen bg-[#050508] dark:bg-[#050508] bg-white dark:text-slate-300 text-slate-900 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 dark:selection:bg-emerald-500/30 dark:selection:text-emerald-200 transition-colors duration-300">
       
-      {/* Top Navigation / Search Bar */}
+            {/* Top Navigation / Search Bar */}
       <nav className="sticky top-0 z-50 border-b border-emerald-500/20 dark:border-emerald-500/20 bg-white dark:bg-[#0a0a0f]/80 dark:backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10 dark:shadow-emerald-900/10 transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           
           {/* Logo / Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded border border-emerald-500/40 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center cyber-glow">
+          <div 
+            className="flex items-center gap-3 cursor-pointer group" 
+            onClick={() => {
+              setAppState('idle');
+              setData(null);
+              if (typeof setBatchResults === 'function') setBatchResults([]);
+              setSymbolInput('');
+              if (typeof setErrorMsg === 'function') setErrorMsg(''); 
+            }}
+          >
+            <div className="w-10 h-10 rounded border border-emerald-500/40 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center cyber-glow group-hover:border-emerald-400 transition-colors">
               <FiCpu className="text-emerald-600 dark:text-emerald-400 text-xl" />
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-widest bg-gradient-to-r from-emerald-600 dark:from-emerald-400 to-cyan-600 dark:to-cyan-400 bg-clip-text text-transparent font-mono">
-                SOC_ORACLE
+                COREMINE RISK
               </h1>
               <p className="text-[10px] uppercase tracking-widest text-emerald-700 dark:text-emerald-500/60 font-mono">
                 B2B Financial Risk Gateway
@@ -132,7 +162,7 @@ function App() {
           </div>
 
           {/* Search Form + Theme Toggle */}
-          <div className="w-full md:w-auto flex justify-center md:justify-end gap-3 items-center">
+          <div className="w-full md:w-auto flex flex-col sm:flex-row justify-center md:justify-end gap-3 items-center">
             {historyItems.length > 0 ? (
               <div className="relative">
                 <button
@@ -171,11 +201,44 @@ function App() {
                 ) : null}
               </div>
             ) : null}
-            <form onSubmit={handleAnalyze} className="flex justify-center md:justify-end">
-              <CompanyCombobox 
-                onSymbolChange={setSymbolInput} 
-                disabled={appState === 'analyzing'} 
+            <label className="h-11 px-3 rounded-lg border border-slate-200 dark:border-emerald-500/30 bg-white dark:bg-emerald-500/10 text-slate-800 dark:text-emerald-300 font-mono text-xs font-semibold uppercase tracking-wide flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={batchMode}
+                onChange={(e) => {
+                  setBatchMode(e.target.checked);
+                  setSymbolInput('');
+                }}
+                disabled={appState === 'analyzing'}
+                className="accent-emerald-500"
               />
+              Batch Mode
+            </label>
+            <form onSubmit={handleAnalyze} className="flex justify-center md:justify-end">
+              {batchMode ? (
+                <div className="flex w-full sm:w-[360px] overflow-hidden rounded-lg border border-emerald-500/30 bg-white dark:bg-slate-950">
+                  <input
+                    type="text"
+                    value={symbolInput}
+                    onChange={(e) => setSymbolInput(e.target.value)}
+                    disabled={appState === 'analyzing'}
+                    placeholder="AAPL, MSFT, F"
+                    className="min-w-0 flex-1 bg-transparent px-4 py-2.5 font-mono text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={appState === 'analyzing'}
+                    className="px-4 border-l border-emerald-500/30 bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    <FiSearch />
+                  </button>
+                </div>
+              ) : (
+                <CompanyCombobox 
+                  onSymbolChange={setSymbolInput} 
+                  disabled={appState === 'analyzing'} 
+                />
+              )}
             </form>
             <ThemeToggle />
           </div>
@@ -202,7 +265,7 @@ function App() {
                 AWAITING TARGET INPUT
               </h2>
               <p className="max-w-md text-emerald-700 dark:text-slate-500 font-mono text-sm leading-relaxed">
-                Enter a financial ticker symbol above to initialize multi-agent risk assessment and compliance scanning protocol.
+                {batchMode ? 'Enter comma-separated financial tickers above to initialize batch risk assessment.' : 'Enter a financial ticker symbol above to initialize multi-agent risk assessment and compliance scanning protocol.'}
               </p>
             </div>
           )}
@@ -228,7 +291,11 @@ function App() {
             </div>
           )}
 
-          {appState === 'results' && (data || errorMsg) && (
+          {appState === 'results' && batchResults.length > 0 && (
+            <BatchResultsTable results={batchResults} />
+          )}
+
+          {appState === 'results' && batchResults.length === 0 && (data || errorMsg) && (
             <Dashboard data={data} error={errorMsg} ticker={analyzedTicker} onSimulationResult={(newData) => setData(newData)} />
           )}
         </div>
