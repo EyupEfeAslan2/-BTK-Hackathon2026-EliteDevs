@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
 from core.orchestrator import get_orchestrator
@@ -17,6 +18,14 @@ app = FastAPI(
     title="FinWell Financial Analysis API",
     version="1.0.0",
     description="Headless multi-agent financial analysis service.",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -40,7 +49,12 @@ def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/api/analyze", response_model=None)
+@app.get("/history")
+def history() -> List[Any]:
+    return []
+
+
+@app.post("/api/v1/analyze", response_model=None)
 def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
     try:
         result = get_orchestrator().analyze_stocks(
