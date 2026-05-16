@@ -33,6 +33,6 @@ func InitDB() {
 	if err != nil {
 		log.Fatalf("Failed to create analyses table: %v", err)
 	}
-	
+
 	log.Println("SQLite database initialized successfully")
 }

@@ -4,6 +4,7 @@ import { FiAlertTriangle, FiBriefcase, FiCpu, FiFileText, FiShield, FiDownload, 
 import { useThemeStore } from '../store/themeStore';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 
 const MODERN_COLOR_SYNTAX =
   /oklab|oklch|\blab\(|\blch\(|color-mix|\bin oklab\b|\bin oklch\b|hwb\(/i;
@@ -118,7 +119,6 @@ function prepareClonedDomForCanvas(origRoot, clonedDoc) {
       }
     }
 
-    // Çocuk elementleri işle
     for (const child of element.children) {
       walkElements(child);
     }
@@ -130,6 +130,7 @@ function prepareClonedDomForCanvas(origRoot, clonedDoc) {
 const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
   const { isDark } = useThemeStore();
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [excelExporting, setExcelExporting] = useState(false);
   const [customAmount, setCustomAmount] = useState(50);
   const [simulating, setSimulating] = useState(false);
   const [telemetryOpen, setTelemetryOpen] = useState(false);
@@ -138,7 +139,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
     if (!ticker) return;
     setSimulating(true);
     try {
-      const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
+      const response = await axios.post('http://localhost:3030/api/v1/analyze', {
         symbols: [ticker],
         period: '1mo',
         requested_amount: String(customAmount),
@@ -365,6 +366,210 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
       console.error('Error exporting PDF:', err);
     } finally {
       setPdfExporting(false);
+    }
+  };
+
+  const exportExcel = () => {
+    try {
+      setExcelExporting(true);
+
+      // Executive Summary Sayfası
+      const executiveSummaryData = [
+        ['CORPORATE CREDIT MEMO - EXECUTIVE SUMMARY'],
+        [],
+        ['Report Generated', new Date().toISOString().split('T')[0]],
+        ['Corporate ID', ticker || 'N/A'],
+        [],
+        ['DECISION INDICATORS'],
+        ['Overall AI Signal', committeeDecision],
+        ['Credit Default Risk Level', defaultRiskLevel],
+        ['Memo Status', committeeDecision],
+        [],
+        ['AI CONSENSUS JUSTIFICATION'],
+        [justificationSummary],
+      ];
+
+      // Recommended Terms Sayfası - Detaylı
+      const recommendedTermsData = [
+        ['RECOMMENDED LOAN TERMS - DETAILED'],
+        [],
+        ['Parameter', 'Value'],
+        ['Maximum Loan Amount', recommendedTerms?.max_amount || 'N/A'],
+        ['Tenor (Months)', recommendedTerms?.tenor || 'N/A'],
+        ['Interest Rate', recommendedTerms?.interest_rate || 'N/A'],
+        ['Fees', recommendedTerms?.fees || 'N/A'],
+        ['Pricing', recommendedTerms?.pricing || 'N/A'],
+        ['Credit Enhancement', recommendedTerms?.credit_enhancement || 'N/A'],
+        ['Drawdown Schedule', recommendedTerms?.drawdown_schedule || 'N/A'],
+      ];
+
+      // Kovenantlar - Detaylı Açıklamalar
+      const covenantsData = [
+        ['LOAN COVENANTS & CONDITIONS'],
+        [],
+        ['#', 'Covenant Description', 'Type'],
+      ];
+      (covenants || []).forEach((covenant, index) => {
+        covenantsData.push([
+          index + 1,
+          covenant || 'N/A',
+          'Mandatory',
+        ]);
+      });
+      if ((covenants || []).length === 0) {
+        covenantsData.push([1, 'Requires manual underwriting', 'Mandatory']);
+      }
+
+      // Agent Votes Detaylı
+      const agentVotesData = [
+        ['AGENT AUDIT LOG - DETAILED VOTES'],
+        [],
+        ['Agent Name', 'Vote Status', 'Reasoning', 'Confidence'],
+      ];
+      (agentVotes || []).forEach((vote) => {
+        agentVotesData.push([
+          vote?.agent_name || 'N/A',
+          vote?.vote || 'N/A',
+          vote?.reasoning || 'N/A',
+          vote?.confidence || 'N/A',
+        ]);
+      });
+      if ((agentVotes || []).length === 0) {
+        agentVotesData.push([
+          'Risk Auditor',
+          'CONDITIONAL',
+          'Missing underwriting evidence requires manual risk review.',
+          'Medium',
+        ]);
+        agentVotesData.push([
+          'Advocate',
+          'CONDITIONAL',
+          'Potential credit support cannot be confirmed from available data.',
+          'Medium',
+        ]);
+        agentVotesData.push([
+          'Compliance',
+          'CONDITIONAL',
+          'Manual compliance confirmation is required before approval.',
+          'Medium',
+        ]);
+      }
+
+      // Committee Snapshot Sayfası
+      const committeeSnapshotData = [
+        ['COMMITTEE SNAPSHOT'],
+        [],
+        ['Metric', 'Value'],
+        ['Committee Decision', committeeDecision],
+        ['Default Risk Assessment', defaultRiskLevel],
+        ['Maximum Loan Amount', recommendedTerms?.max_amount || 'N/A'],
+        ['Tenor', recommendedTerms?.tenor || 'N/A'],
+        [],
+        ['RECOMMENDATION SUMMARY'],
+        [justificationSummary],
+      ];
+
+      // Raw Telemetry - Detaylı
+      const telemetryData = [
+        ['RAW TELEMETRY DATA - ANALYSIS METRICS'],
+        [],
+        ['Metric', 'Value'],
+      ];
+      
+      if (hasRawTelemetry && rawTelemetry) {
+        Object.entries(rawTelemetry).forEach(([key, value]) => {
+          telemetryData.push([
+            formatTelemetryLabel(key),
+            formatTelemetryValue(value),
+          ]);
+        });
+      } else if (data) {
+        // Data nesnesindeki tüm alanları telemetri olarak ekle
+        Object.entries(data).forEach(([key, value]) => {
+          if (typeof value === 'object') {
+            telemetryData.push([
+              formatTelemetryLabel(key),
+              JSON.stringify(value),
+            ]);
+          } else {
+            telemetryData.push([
+              formatTelemetryLabel(key),
+              formatTelemetryValue(value),
+            ]);
+          }
+        });
+      }
+
+      // Full Report - Tüm veriler bir sayfada
+      const fullReportData = [
+        ['FULL CREDIT ANALYSIS REPORT'],
+        ['Generated', new Date().toISOString()],
+        ['Corporate ID', ticker || 'N/A'],
+        [],
+        ['=== EXECUTIVE SUMMARY ==='],
+        ['Decision', committeeDecision],
+        ['Risk Level', defaultRiskLevel],
+        ['Summary', justificationSummary],
+        [],
+        ['=== LOAN TERMS ==='],
+        ['Max Amount', recommendedTerms?.max_amount || 'N/A'],
+        ['Tenor', recommendedTerms?.tenor || 'N/A'],
+        ['Interest Rate', recommendedTerms?.interest_rate || 'N/A'],
+        [],
+        ['=== COVENANTS ==='],
+      ];
+      
+      (covenants || []).forEach((covenant, idx) => {
+        fullReportData.push([`Covenant ${idx + 1}`, covenant || 'N/A']);
+      });
+      
+      fullReportData.push([], ['=== AGENT VOTES ===']);
+      (agentVotes || []).forEach((vote) => {
+        fullReportData.push([
+          vote?.agent_name || 'N/A',
+          vote?.vote || 'N/A',
+          vote?.reasoning || 'N/A',
+        ]);
+      });
+
+      // Workbook oluştur
+      const workbook = XLSX.utils.book_new();
+
+      // Sayfaları oluştur
+      const sheets = {
+        'Executive Summary': XLSX.utils.aoa_to_sheet(executiveSummaryData),
+        'Loan Terms': XLSX.utils.aoa_to_sheet(recommendedTermsData),
+        'Covenants': XLSX.utils.aoa_to_sheet(covenantsData),
+        'Agent Audit Log': XLSX.utils.aoa_to_sheet(agentVotesData),
+        'Committee Snapshot': XLSX.utils.aoa_to_sheet(committeeSnapshotData),
+        'Telemetry Data': XLSX.utils.aoa_to_sheet(telemetryData),
+        'Full Report': XLSX.utils.aoa_to_sheet(fullReportData),
+      };
+
+      // Sütun genişliklerini ayarla
+      sheets['Executive Summary']['!cols'] = [{ wch: 30 }, { wch: 80 }];
+      sheets['Loan Terms']['!cols'] = [{ wch: 25 }, { wch: 40 }];
+      sheets['Covenants']['!cols'] = [{ wch: 5 }, { wch: 70 }, { wch: 15 }];
+      sheets['Agent Audit Log']['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 60 }, { wch: 15 }];
+      sheets['Committee Snapshot']['!cols'] = [{ wch: 30 }, { wch: 50 }];
+      sheets['Telemetry Data']['!cols'] = [{ wch: 35 }, { wch: 60 }];
+      sheets['Full Report']['!cols'] = [{ wch: 35 }, { wch: 70 }];
+
+      // Sayfaları workbook'a ekle
+      Object.entries(sheets).forEach(([name, sheet]) => {
+        XLSX.utils.book_append_sheet(workbook, sheet, name);
+      });
+
+      // Dosyayı indir
+      const timestamp = new Date().toISOString().split('T')[0];
+      const safeTicker = String(ticker || 'report').replace(/[^\w.-]/g, '_').slice(0, 32);
+      const filename = `credit-memo-${safeTicker}-${timestamp}.xlsx`;
+
+      XLSX.writeFile(workbook, filename);
+    } catch (err) {
+      console.error('Error exporting Excel:', err);
+    } finally {
+      setExcelExporting(false);
     }
   };
 
@@ -702,17 +907,28 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
 
         <div className="w-full max-w-7xl mx-auto flex flex-col items-center gap-3 border-t border-emerald-200 dark:border-emerald-500/20 pt-8">
           <p className="text-center text-sm md:text-base text-emerald-700 dark:text-slate-500 font-mono">
-            Use the button below to download this analysis as a PDF.
+            Use the buttons below to download this analysis as PDF or Excel.
           </p>
-          <button
-            type="button"
-            onClick={() => void exportPDF()}
-            disabled={pdfExporting}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-          >
-            <FiDownload className="text-lg shrink-0" />
-            {pdfExporting ? 'Preparing PDF…' : 'Download analysis as PDF'}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-center">
+            <button
+              type="button"
+              onClick={() => void exportPDF()}
+              disabled={pdfExporting}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+            >
+              <FiDownload className="text-lg shrink-0" />
+              {pdfExporting ? 'Preparing PDF…' : 'Download as PDF'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void exportExcel()}
+              disabled={excelExporting}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+            >
+              <FiDownload className="text-lg shrink-0" />
+              {excelExporting ? 'Preparing Excel…' : 'Download as Excel'}
+            </button>
+          </div>
         </div>
       </div>
 

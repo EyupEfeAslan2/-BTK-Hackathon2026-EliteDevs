@@ -24,7 +24,6 @@ services:
       - "3030:3030"
     environment:
       # Inject the AI worker URL for the Go app to use
-      # Because they are on the same custom bridge network, we can use the service name 'ai-worker'
       - AI_WORKER_URL=http://ai-worker:8000
     depends_on:
       - ai-worker

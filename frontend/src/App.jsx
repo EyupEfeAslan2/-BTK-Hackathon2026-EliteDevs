@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FiSearch, FiCpu } from 'react-icons/fi';
+import { FiSearch, FiCpu, FiChevronDown } from 'react-icons/fi';
 import TerminalLoading from './components/TerminalLoading';
 import Dashboard from './components/Dashboard';
 import BatchResultsTable from './components/BatchResultsTable';
@@ -20,6 +20,7 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [historyItems, setHistoryItems] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState([false, false, false]); // FAQ items open state
   const { isDark } = useThemeStore();
 
   // We track two sub-states during 'analyzing' to wait for BOTH API and Terminal Animation to finish
@@ -118,6 +119,14 @@ function App() {
 
   const handleTerminalComplete = () => {
     setTerminalDone(true);
+  };
+
+  const toggleFaq = (index) => {
+    setFaqOpen(prev => {
+      const newState = [...prev];
+      newState[index] = !newState[index];
+      return newState;
+    });
   };
 
   // When both terminal animation and API are done, transition to results
@@ -300,6 +309,104 @@ function App() {
           )}
         </div>
       </main>
+      <footer className="border-t border-emerald-500/20 bg-white dark:bg-[#050508] py-12 px-6 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
+          
+          {/* Marka ve Tanıtım */}
+          <div className="space-y-4">
+            <h3 className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tracking-tighter text-lg">
+              COREMINE RISK
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 font-mono leading-relaxed">
+              CoreMine RISK offers transparent and auditable decision support mechanisms with multi-agent systems in B2B credit risk analysis..
+            </p>
+          </div>
+
+          {/* FAQ */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-emerald-500/80">FAQ</h4>
+            <div className="space-y-2">
+              {/* FAQ Item 1 */}
+              <div className="group border border-slate-200 dark:border-emerald-500/20 rounded-lg overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-400/50 transition-colors duration-300">
+                <button
+                  onClick={() => toggleFaq(0)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-colors duration-300"
+                >
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 text-left">What is CoreMine RISK?</p>
+                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 transition-all duration-500 transform ${faqOpen[0] ? 'rotate-180 bg-emerald-200 dark:bg-emerald-500/30' : ''}`}>
+                    <FiChevronDown className="text-emerald-600 dark:text-emerald-400 text-sm" />
+                  </div>
+                </button>
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${faqOpen[0] ? 'max-h-40' : 'max-h-0'}`}>
+                  <div className="px-4 py-3 border-t border-slate-200 dark:border-emerald-500/20 bg-slate-50 dark:bg-emerald-500/5">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">CoreMine RISK is an AI-powered B2B financial risk assessment platform using multi-agent systems for credit analysis and compliance.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FAQ Item 2 */}
+              <div className="group border border-slate-200 dark:border-emerald-500/20 rounded-lg overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-400/50 transition-colors duration-300">
+                <button
+                  onClick={() => toggleFaq(1)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-colors duration-300"
+                >
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 text-left">How does the analysis work?</p>
+                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 transition-all duration-500 transform ${faqOpen[1] ? 'rotate-180 bg-emerald-200 dark:bg-emerald-500/30' : ''}`}>
+                    <FiChevronDown className="text-emerald-600 dark:text-emerald-400 text-sm" />
+                  </div>
+                </button>
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${faqOpen[1] ? 'max-h-40' : 'max-h-0'}`}>
+                  <div className="px-4 py-3 border-t border-slate-200 dark:border-emerald-500/20 bg-slate-50 dark:bg-emerald-500/5">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">Our system analyzes financial metrics, technical indicators, news sentiment, and compliance data in real-time.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FAQ Item 3 */}
+              <div className="group border border-slate-200 dark:border-emerald-500/20 rounded-lg overflow-hidden hover:border-emerald-400 dark:hover:border-emerald-400/50 transition-colors duration-300">
+                <button
+                  onClick={() => toggleFaq(2)}
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-emerald-50 dark:hover:bg-emerald-500/5 transition-colors duration-300"
+                >
+                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 text-left">Is my data secure?</p>
+                  <div className={`flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 transition-all duration-500 transform ${faqOpen[2] ? 'rotate-180 bg-emerald-200 dark:bg-emerald-500/30' : ''}`}>
+                    <FiChevronDown className="text-emerald-600 dark:text-emerald-400 text-sm" />
+                  </div>
+                </button>
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${faqOpen[2] ? 'max-h-40' : 'max-h-0'}`}>
+                  <div className="px-4 py-3 border-t border-slate-200 dark:border-emerald-500/20 bg-slate-50 dark:bg-emerald-500/5">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">Yes, we employ enterprise-grade encryption and comply with international data protection standards.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+                  {/* Contact Information */}
+        <div className="space-y-4 ml-8"> 
+          <h4 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-emerald-500/80">Information</h4>
+          <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-400 font-mono">
+            <li>HQ: Ankara, Turkey</li>
+            <li>
+              <a 
+                href="mailto:elitedevs2026@gmail.com?subject=SOC_ORACLE%20Hakkında" 
+                className="hover:text-emerald-500 transition-colors duration-200"
+              >
+                elitedevs2026@gmail.com
+              </a>
+            </li>
+            <li>+90 (000) 000 0000</li>
+          </ul>
+        </div>
+
+        </div>
+
+        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-100 dark:border-emerald-500/10 flex justify-between items-center">
+          <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+            © 2026 CoreMine Risk — EliteDevs Hackathon Team
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
