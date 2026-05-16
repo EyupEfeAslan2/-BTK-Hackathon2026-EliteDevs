@@ -1,6 +1,7 @@
 import logging
 import json
 import math
+import re  # <-- YZ markdown etiketlerini temizlemek için eklendi
 from crewai import Crew, Process
 from functools import lru_cache
 from typing import Dict, List, Any, Optional
@@ -341,6 +342,14 @@ class FinancialAnalysisOrchestrator:
 
         if isinstance(raw_result, str):
             text = raw_result.strip()
+            
+            # --- ACIMASIZ MARKDOWN TEMİZLEYİCİ ---
+            # LLM'nin araya sıkıştırdığı ```json veya ``` etiketlerini yok eder
+            text = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
+            text = re.sub(r'```\s*', '', text)
+            text = text.strip()
+            # ------------------------------------
+            
             for candidate in (text, self.extract_json_payload(text)):
                 if not candidate:
                     continue
@@ -348,6 +357,8 @@ class FinancialAnalysisOrchestrator:
                     return self.make_json_safe(json.loads(candidate))
                 except json.JSONDecodeError:
                     continue
+            
+            logger.error(f"JSON Parse Error. Temizlenemeyen Metin: {text[:100]}...")
             return {"raw": text}
 
         return self.make_json_safe(raw_result)
