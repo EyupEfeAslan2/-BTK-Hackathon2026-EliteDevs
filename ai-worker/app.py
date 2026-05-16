@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -53,10 +53,9 @@ def history() -> List[Any]:
     return []
 
 
-@app.post("/api/v1/analyze", response_model=None)
-def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
-    symbol = request.symbols[0] if request.symbols else "AAPL"
-    requested_amount = request.requested_amount or "50"
+def _fallback_memo(symbols: List[str], period: str, requested_amount: Optional[str], detail: str = "") -> Dict[str, Any]:
+    symbol = symbols[0] if symbols else "AAPL"
+    requested_amount_label = requested_amount or "50"
     now = datetime.now(timezone.utc).isoformat()
 
     return {
@@ -105,8 +104,8 @@ def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
         "raw_telemetry": {
             symbol: {
                 "ticker": symbol,
-                "analysis_period": request.period,
-                "requested_amount": f"${requested_amount}M",
+                "analysis_period": period,
+                "requested_amount": f"${requested_amount_label}M",
                 "market_cap": 3200000000000,
                 "annual_revenue": 391040000000,
                 "free_cash_flow": 104340000000,
@@ -120,9 +119,115 @@ def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
                 "credit_score": 92,
                 "sentiment_score": 0.84,
                 "data_quality": "excellent",
+                "fallback_reason": detail,
                 "last_updated": now,
             }
         },
         "status": "success",
         "timestamp": now,
     }
+
+
+def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -> Dict[str, Any]:
+    memo = result.get("credit_committee_memo")
+
+    if not isinstance(memo, dict) and isinstance(result.get("crew_result"), dict):
+        crew_result = result["crew_result"]
+        memo = crew_result.get("credit_committee_memo") if isinstance(crew_result.get("credit_committee_memo"), dict) else crew_result
+
+    if not isinstance(memo, dict):
+        frontend_keys = {
+            "committee_decision",
+            "default_risk_level",
+            "recommended_loan_terms",
+            "justification_summary",
+            "raw_telemetry",
+            "agent_votes",
+        }
+        if frontend_keys.intersection(result.keys()):
+            memo = result
+
+    if not isinstance(memo, dict):
+        return _fallback_memo(
+            request.symbols,
+            request.period,
+            request.requested_amount,
+            "Dynamic analysis completed without a credit committee memo.",
+        )
+
+    recommended_terms = memo.get("recommended_loan_terms")
+    if not isinstance(recommended_terms, dict):
+        recommended_terms = {
+            "max_amount": "$0M",
+            "tenor": "0 months",
+            "covenants": ["Requires manual underwriting"],
+        }
+
+    covenants = recommended_terms.get("covenants")
+    if not isinstance(covenants, list):
+        recommended_terms["covenants"] = [str(covenants)] if covenants else ["Standard covenants apply"]
+
+    agent_votes = memo.get("agent_votes")
+    if not isinstance(agent_votes, list):
+        agent_votes = [
+            {
+                "agent_name": "Risk Auditor",
+                "vote": "CONDITIONAL",
+                "brief_reason": "Automated decision was generated without detailed agent vote records.",
+            }
+        ]
+
+    raw_telemetry = memo.get("raw_telemetry")
+    if not isinstance(raw_telemetry, dict):
+        raw_telemetry = {}
+
+    return {
+        "committee_decision": memo.get("committee_decision", "CONDITIONAL"),
+        "default_risk_level": memo.get("default_risk_level", "MEDIUM"),
+        "recommended_loan_terms": {
+            "max_amount": recommended_terms.get("max_amount", "$0M"),
+            "tenor": recommended_terms.get("tenor", "0 months"),
+            "covenants": recommended_terms.get("covenants", ["Standard covenants apply"]),
+        },
+        "justification_summary": memo.get("justification_summary", "Decision based on automated financial review."),
+        "raw_telemetry": raw_telemetry,
+        "agent_votes": agent_votes,
+        "symbols": result.get("symbols", request.symbols),
+        "analysis_period": result.get("analysis_period", request.period),
+        "method": result.get("method", "dynamic_orchestration"),
+        "status": result.get("status", "success"),
+        "timestamp": result.get("timestamp", datetime.now(timezone.utc).isoformat()),
+    }
+
+
+@app.post("/api/v1/analyze", response_model=None)
+def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
+    try:
+        from core.orchestrator import get_orchestrator
+
+        result = get_orchestrator().analyze_stocks(
+            symbols=request.symbols,
+            analysis_period=request.period,
+            use_crew=request.use_crew,
+            requested_amount=request.requested_amount,
+        )
+    except ValueError as exc:
+        logger.warning("Analysis setup failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        logger.exception("Unexpected analysis failure")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Analysis failed unexpectedly.",
+        ) from exc
+
+    if result.get("status") == "failed":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result,
+        )
+
+    return _extract_frontend_payload(result, request)
