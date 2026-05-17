@@ -530,6 +530,10 @@ Please make sure to:
 
 <div align="center">
 
+<p align="center">
+  <img src="./assets/EliteDevs_logo.png" alt="Elite Devs Logo" width="200" />
+</p>
+
 ## Team — Elite Devs
 
 *Developed for BTK Hackathon 2026*
@@ -538,7 +542,6 @@ Please make sure to:
 |------|------|
 | **Lead Backend & AI Architect** | Eyüp Efe Aslan |
 | **Frontend Engineer & UI Specialist** | Ceren Aylin Balaban |
-
 <br/>
 
 ---
