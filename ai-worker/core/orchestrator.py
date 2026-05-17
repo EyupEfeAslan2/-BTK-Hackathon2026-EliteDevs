@@ -1,6 +1,7 @@
 import logging
 import json
 import math
+import os
 import re  # <-- YZ markdown etiketlerini temizlemek için eklendi
 from crewai import Crew, Process
 from functools import lru_cache
@@ -169,7 +170,18 @@ class FinancialAnalysisOrchestrator:
             "status": "success",
             "timestamp": datetime.now().isoformat()
         }
-        
+
+        # --- Slack Notification ---
+        try:
+            memo = final_results.get("credit_committee_memo", {})
+            self.notify_slack(
+                symbols,
+                memo.get("committee_decision", "UNKNOWN"),
+                memo.get("recommended_loan_terms", {}).get("max_amount", "N/A")
+            )
+        except Exception as slack_err:
+            logger.warning(f"Slack notification failed: {slack_err}")
+
         return final_results
     
     def generate_credit_committee_memo(self, 
@@ -222,8 +234,15 @@ class FinancialAnalysisOrchestrator:
                 compliance
             )
 
+            # --- Strict Compliance Veto ---
+            committee_decision = rec.get("committee_decision", "CONDITIONAL")
+            for vote in agent_votes:
+                if vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
+                    committee_decision = "REJECTED"
+                    break
+
             return {
-                "committee_decision": rec.get("committee_decision", "CONDITIONAL"),
+                "committee_decision": committee_decision,
                 "default_risk_level": rec.get("default_risk_level", "MEDIUM"),
                 "recommended_loan_terms": rec.get("recommended_loan_terms", {
                     "max_amount": "$0M",
@@ -327,6 +346,45 @@ class FinancialAnalysisOrchestrator:
                     vote["brief_reason"] = compliance.get("legal_summary", "Compliance veto requires rejection.")[:180]
 
         return votes
+
+    def notify_slack(self, symbols: List[str], decision: str, amount: str):
+        import requests
+
+        webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
+        if not webhook_url:
+            logger.debug("SLACK_WEBHOOK_URL not set, skipping notification.")
+            return
+
+        decision_upper = str(decision).upper()
+        if "APPROVE" in decision_upper:
+            color = "#2eb886"   # Green
+        elif "REJECT" in decision_upper:
+            color = "#e01e5a"   # Red
+        else:
+            color = "#daa038"   # Amber
+
+        payload = {
+            "attachments": [
+                {
+                    "color": color,
+                    "title": f"Credit Committee Decision: {decision}",
+                    "fields": [
+                        {"title": "Entities", "value": ", ".join(symbols), "short": True},
+                        {"title": "Decision", "value": decision, "short": True},
+                        {"title": "Max Amount", "value": str(amount), "short": True},
+                        {"title": "Timestamp", "value": datetime.now().isoformat(), "short": True}
+                    ],
+                    "footer": "CoreMine Risk · AI Credit Committee"
+                }
+            ]
+        }
+
+        try:
+            resp = requests.post(webhook_url, json=payload, timeout=5)
+            resp.raise_for_status()
+            logger.info(f"Slack notification sent for {symbols} — {decision}")
+        except requests.RequestException as e:
+            logger.warning(f"Slack webhook request failed: {e}")
 
     def parse_crew_result(self, result: Any) -> Any:
         raw_result = getattr(result, "raw", result)
