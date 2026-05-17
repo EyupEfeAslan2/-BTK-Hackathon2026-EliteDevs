@@ -141,20 +141,20 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#050508] dark:bg-[#050508] bg-white dark:text-slate-300 text-slate-900 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 dark:selection:bg-emerald-500/30 dark:selection:text-emerald-200 transition-colors duration-300">
-      
-            {/* Top Navigation / Search Bar */}
+
+      {/* Top Navigation / Search Bar */}
       <nav className="sticky top-0 z-50 border-b border-emerald-500/20 dark:border-emerald-500/20 bg-white dark:bg-[#0a0a0f]/80 dark:backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10 dark:shadow-emerald-900/10 transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          
+
           {/* Logo / Brand */}
-          <div 
-            className="flex items-center gap-3 cursor-pointer group" 
+          <div
+            className="flex items-center gap-3 cursor-pointer group"
             onClick={() => {
               setAppState('idle');
               setData(null);
               if (typeof setBatchResults === 'function') setBatchResults([]);
               setSymbolInput('');
-              if (typeof setErrorMsg === 'function') setErrorMsg(''); 
+              if (typeof setErrorMsg === 'function') setErrorMsg('');
             }}
           >
             <div className="w-10 h-10 rounded border border-emerald-500/40 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center cyber-glow group-hover:border-emerald-400 transition-colors">
@@ -243,9 +243,9 @@ function App() {
                   </button>
                 </div>
               ) : (
-                <CompanyCombobox 
-                  onSymbolChange={setSymbolInput} 
-                  disabled={appState === 'analyzing'} 
+                <CompanyCombobox
+                  onSymbolChange={setSymbolInput}
+                  disabled={appState === 'analyzing'}
                 />
               )}
             </form>
@@ -257,7 +257,7 @@ function App() {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto px-6 py-12 relative transition-colors duration-300">
-        
+
         {/* Background Decorative Elements */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute top-1/4 -left-64 w-[500px] h-[500px] bg-emerald-600/5 dark:bg-emerald-600/5 rounded-full blur-[120px]" />
@@ -281,16 +281,16 @@ function App() {
 
           {(appState === 'analyzing' || appState === 'error') && (
             <div className="mt-8 flex flex-col items-center">
-              <TerminalLoading 
-                onComplete={handleTerminalComplete} 
-                apiDone={apiDone || appState === 'error'} 
+              <TerminalLoading
+                onComplete={handleTerminalComplete}
+                apiDone={apiDone || appState === 'error'}
                 error={appState === 'error' ? errorMsg : null}
                 symbol={symbolInput}
                 companyName={TOP_50_COMPANIES.find(c => c.ticker === symbolInput.toUpperCase())?.name}
                 sector={undefined} // Defaulting to "Corporate" in TerminalLoading
               />
               {appState === 'error' && (
-                <button 
+                <button
                   onClick={() => setAppState('idle')}
                   className="mt-6 px-4 py-2 border border-red-500/50 dark:border-red-500/50 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 rounded font-mono text-sm transition-colors animate-fade-in"
                 >
@@ -318,7 +318,7 @@ function App() {
       </main>
       <footer className="border-t border-emerald-500/20 bg-white dark:bg-[#050508] py-12 px-6 transition-colors duration-300">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
-          
+
           {/* Marka ve Tanıtım */}
           <div className="space-y-4">
             <h3 className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tracking-tighter text-lg">
@@ -388,7 +388,8 @@ function App() {
               </div>
             </div>
           </div>
-    
+
+
         </div>
 
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-100 dark:border-emerald-500/10 flex justify-between items-center">
