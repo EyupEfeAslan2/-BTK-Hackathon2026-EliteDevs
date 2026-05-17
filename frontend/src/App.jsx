@@ -381,24 +381,7 @@ function App() {
               </div>
             </div>
           </div>
-
-                  {/* Contact Information */}
-        <div className="space-y-4 ml-8"> 
-          <h4 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-emerald-500/80">Information</h4>
-          <ul className="text-xs space-y-2 text-slate-600 dark:text-slate-400 font-mono">
-            <li>HQ: Ankara, Turkey</li>
-            <li>
-              <a 
-                href="mailto:elitedevs2026@gmail.com?subject=SOC_ORACLE%20Hakkında" 
-                className="hover:text-emerald-500 transition-colors duration-200"
-              >
-                elitedevs2026@gmail.com
-              </a>
-            </li>
-            <li>+90 (000) 000 0000</li>
-          </ul>
-        </div>
-
+    
         </div>
 
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-100 dark:border-emerald-500/10 flex justify-between items-center">
