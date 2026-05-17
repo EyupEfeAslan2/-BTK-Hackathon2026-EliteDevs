@@ -301,7 +301,14 @@ function App() {
           )}
 
           {appState === 'results' && batchResults.length > 0 && (
-            <BatchResultsTable results={batchResults} />
+            <BatchResultsTable
+              results={batchResults}
+              onRowClick={(item) => {
+                setData(item.data);
+                setAnalyzedTicker(item.ticker);
+                setBatchResults([]);
+              }}
+            />
           )}
 
           {appState === 'results' && batchResults.length === 0 && (data || errorMsg) && (
