@@ -2,7 +2,7 @@
 
 <br/>
 
-<img src="frontend/src/assets/images/logo.svg" alt="CoreMine Risk Logo" width="80" height="80" />
+<img src="assets/images/logo.svg" alt="CoreMine Risk Logo" width="80" height="80" />
 
 # CoreMine Risk
 
