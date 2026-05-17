@@ -531,7 +531,7 @@ Please make sure to:
 <div align="center">
 
 <p align="center">
-  <img src="./assets/EliteDevs_logo.png" alt="Elite Devs Logo" width="200" />
+  <img src="./assets/images/EliteDevs_logo.png" alt="Elite Devs Logo" width="200" />
 </p>
 
 ## Team — Elite Devs
