@@ -7,6 +7,7 @@ import {
   exportSingleAnalysisExcel,
   formatTelemetryLabel,
   formatTelemetryValue,
+  sanitizeReportCopy,
 } from '../utils/creditMemoExport';
 
 const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
@@ -93,7 +94,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
   const defaultRiskLevel = data?.default_risk_level || 'N/A';
   const recommendedTerms = data?.recommended_loan_terms || {};
   const covenants = data?.recommended_loan_terms?.covenants || [];
-  const justificationSummary = data?.justification_summary || 'N/A';
+  const justificationSummary = sanitizeReportCopy(data?.justification_summary) || 'N/A';
   const agentVotes = Array.isArray(data?.agent_votes) ? data.agent_votes : [];
   const rawTelemetry = data?.raw_telemetry && typeof data.raw_telemetry === 'object' ? data.raw_telemetry : null;
   const hasRawTelemetry = rawTelemetry && Object.keys(rawTelemetry).length > 0;
@@ -121,10 +122,48 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
     <>
       <style>{`
         @media print {
-          svg { display: none !important; }
+          svg, button, input, select, textarea { display: none !important; }
+          .pdf-exclude, .hidden-print, .summary-section { display: none !important; }
         }
       `}</style>
       <div className="w-full flex flex-col gap-6">
+        <div className="w-full max-w-7xl mx-auto pdf-exclude">
+          <div className="w-full p-5 md:p-6 rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/5 shadow-lg relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-500" />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <FiDownload className="text-emerald-600 dark:text-emerald-400 text-lg" />
+                <h4 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-300 uppercase tracking-wide font-semibold">
+                  Export Analysis
+                </h4>
+              </div>
+              <span className="w-fit rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                Download Options
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full justify-start">
+              <button
+                type="button"
+                onClick={() => void exportPDF()}
+                disabled={pdfExporting}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+              >
+                <FiDownload className="text-lg shrink-0" />
+                {pdfExporting ? 'Preparing PDF…' : 'PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportExcel()}
+                disabled={excelExporting}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+              >
+                <FiDownload className="text-lg shrink-0" />
+                {excelExporting ? 'Preparing Excel…' : 'Excel'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div id="dashboard-content" className="w-full max-w-7xl mx-auto font-sans animate-fade-in text-slate-900 dark:text-slate-200 transition-colors duration-300 text-base md:text-lg">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div>
@@ -138,8 +177,44 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                 Last Updated: {new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC
               </p>
             </div>
-            <div className="px-4 py-2 border border-emerald-400 dark:border-emerald-500/30 bg-emerald-100 dark:bg-emerald-500/10 rounded-md font-mono text-emerald-700 dark:text-emerald-400 text-sm md:text-base cyber-glow">
+            <div className="px-4 py-2 border border-emerald-400 dark:border-emerald-500/30 bg-emerald-100 dark:bg-emerald-500/10 rounded-md font-mono text-emerald-700 dark:text-emerald-400 text-sm md:text-base cyber-glow pdf-exclude">
               SYSTEM_ONLINE // AI_CONSENSUS_REACHED
+            </div>
+          </div>
+
+          {/* export controls live outside dashboard-content */}
+          <div className="hidden pdf-exclude" aria-hidden="true" style={{ display: 'none' }}>
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-500"></div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <FiDownload className="text-emerald-600 dark:text-emerald-400 text-lg" />
+                <h4 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-300 uppercase tracking-wide font-semibold">
+                  Export Analysis
+                </h4>
+              </div>
+              <span className="w-fit rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                Download Options
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full justify-start">
+              <button
+                type="button"
+                onClick={() => void exportPDF()}
+                disabled={pdfExporting}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+              >
+                <FiDownload className="text-lg shrink-0" />
+                {pdfExporting ? 'Preparing PDF…' : 'PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportExcel()}
+                disabled={excelExporting}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+              >
+                <FiDownload className="text-lg shrink-0" />
+                {excelExporting ? 'Preparing Excel…' : 'Excel'}
+              </button>
             </div>
           </div>
 
@@ -148,7 +223,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
               <div className="absolute -right-6 -top-6 opacity-10 hidden">
                 <FiShield size={120} />
               </div>
-              <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Overall AI Signal</div>
+              <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Overall AI Signal:</div>
               <div className="flex items-end gap-4">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight whitespace-normal break-words leading-tight text-slate-950 dark:text-slate-100">
                   {data?.committee_decision || 'N/A'}
@@ -160,7 +235,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
               <div className="absolute -right-6 -top-6 opacity-10 hidden">
                 <FiAlertTriangle size={120} />
               </div>
-              <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Credit Default Risk</div>
+              <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Credit Default Risk:</div>
               <div className="flex items-end gap-4">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight whitespace-normal break-words leading-tight text-cyan-900 dark:text-cyan-300">
                   {defaultRiskLevel || 'N/A'}
@@ -169,7 +244,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
             </div>
 
             <div className="p-6 rounded-xl border border-emerald-200 dark:border-slate-700 bg-emerald-50 dark:bg-slate-900/50 backdrop-blur-sm">
-              <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Memo Status</div>
+              <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Memo Status:</div>
               <div className="text-4xl md:text-5xl font-bold text-emerald-900 dark:text-slate-200">
                 {committeeDecision || 'N/A'}
               </div>
@@ -187,7 +262,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
               AI CONSENSUS JUSTIFICATION
             </h3>
             <p className="text-emerald-900 dark:text-slate-300 font-mono text-sm md:text-base leading-relaxed pl-2">
-              {data?.justification_summary || 'N/A'}
+              {justificationSummary}
             </p>
           </div>
 
@@ -201,11 +276,11 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
-                    <div className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Max Amount</div>
+                    <div className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Max Amount:</div>
                     <div className="text-4xl md:text-5xl font-bold text-emerald-900 dark:text-slate-100">{recommendedTerms?.max_amount || 'N/A'}</div>
                   </div>
                   <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
-                    <div className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Tenor</div>
+                    <div className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Tenor:</div>
                     <div className="text-4xl md:text-5xl font-bold text-emerald-900 dark:text-slate-100">{recommendedTerms?.tenor || 'N/A'}</div>
                   </div>
                 </div>
@@ -230,7 +305,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
               </div>
 
               {/* ── WHAT-IF SIMULATION PANEL ── */}
-              <div className="w-full max-w-full p-5 md:p-6 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-white dark:bg-slate-900/80 shadow-lg shadow-amber-500/10 relative overflow-hidden" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+              <div className="w-full max-w-full p-5 md:p-6 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-white dark:bg-slate-900/80 shadow-lg shadow-amber-500/10 relative overflow-hidden pdf-exclude" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-emerald-500"></div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 min-w-0">
                   <h4 className="text-sm md:text-base font-mono text-slate-900 dark:text-amber-300 uppercase tracking-wide flex items-center gap-2 font-semibold min-w-0 break-words">
@@ -247,8 +322,8 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-5 xl:items-end min-w-0">
                   <div className="min-w-0">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2 mb-3 min-w-0">
-                      <span className="text-xs font-mono text-slate-600 dark:text-slate-400 uppercase tracking-wide break-words">Requested Loan Amount</span>
-                      <span className="text-2xl md:text-3xl font-bold font-mono text-slate-950 dark:text-amber-200 leading-none whitespace-normal break-words">${customAmount}M</span>
+                      <span className="text-xs font-mono text-slate-600 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap">Loan Amount</span>
+                      <span className="text-2xl md:text-3xl font-bold font-mono text-slate-950 dark:text-amber-200 leading-none whitespace-nowrap">${customAmount}M</span>
                     </div>
                     <input
                       type="range"
@@ -302,32 +377,32 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-800/50 border border-emerald-200 dark:border-slate-700/50">
-                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Decision</span>
+                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Decision:</span>
                     <span className="px-2 py-1 text-xs md:text-sm rounded bg-emerald-200 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 uppercase font-semibold">
                       {data?.committee_decision || 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-800/50 border border-emerald-200 dark:border-slate-700/50">
-                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Default Risk</span>
+                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Default Risk:</span>
                     <span className="px-2 py-1 text-xs md:text-sm rounded bg-cyan-200 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 border border-cyan-300 dark:border-cyan-500/30 uppercase font-semibold">
                       {data?.default_risk_level || 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-800/50 border border-emerald-200 dark:border-slate-700/50">
-                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Max Amount</span>
+                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Max Amount:</span>
                     <span className="px-2 py-1 text-xs md:text-sm rounded bg-emerald-100 dark:bg-slate-700/60 text-emerald-700 dark:text-slate-200 border border-emerald-200 dark:border-slate-600 uppercase font-semibold">
                       {data?.recommended_loan_terms?.max_amount || 'N/A'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-800/50 border border-emerald-200 dark:border-slate-700/50">
-                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Tenor</span>
+                    <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Tenor:</span>
                     <span className="px-2 py-1 text-xs md:text-sm rounded bg-emerald-100 dark:bg-slate-700/60 text-emerald-700 dark:text-slate-200 border border-emerald-200 dark:border-slate-600 uppercase font-semibold">
                       {data?.recommended_loan_terms?.tenor || 'N/A'}
                     </span>
                   </div>
                 </div>
 
-                <div className="mt-6 bg-emerald-100 dark:bg-slate-900/80 rounded-lg p-4 pb-6 mb-2 border border-emerald-200 dark:border-slate-700 relative" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                <div className="mt-6 bg-emerald-100 dark:bg-slate-900/80 rounded-lg p-4 pb-6 mb-2 border border-emerald-200 dark:border-slate-700 relative summary-section" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-600 rounded-t-lg"></div>
                   <h4 className="text-sm md:text-base font-mono text-amber-700 dark:text-amber-500 mb-2 uppercase font-semibold">Summary</h4>
                   <p className="text-sm md:text-base text-emerald-900 dark:text-slate-300 leading-relaxed pb-2">
@@ -340,7 +415,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                 <button
                   type="button"
                   onClick={() => setTelemetryOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-200 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 transition-colors font-mono text-sm font-semibold uppercase tracking-wide shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/10 text-cyan-800 dark:text-cyan-200 hover:bg-cyan-100 dark:hover:bg-cyan-500/20 transition-colors font-mono text-sm font-semibold uppercase tracking-wide shadow-sm pdf-exclude"
                 >
                   <FiDatabase className="shrink-0" />
                   View Raw Telemetry
@@ -373,32 +448,6 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                 </div>
               ) : null}
             </div>
-          </div>
-        </div>
-
-        <div className="w-full max-w-7xl mx-auto flex flex-col items-center gap-3 border-t border-emerald-200 dark:border-emerald-500/20 pt-8">
-          <p className="text-center text-sm md:text-base text-emerald-700 dark:text-slate-500 font-mono">
-            Use the buttons below to download this analysis as PDF or Excel.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-center">
-            <button
-              type="button"
-              onClick={() => void exportPDF()}
-              disabled={pdfExporting}
-              className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-            >
-              <FiDownload className="text-lg shrink-0" />
-              {pdfExporting ? 'Preparing PDF…' : 'Download as PDF'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void exportExcel()}
-              disabled={excelExporting}
-              className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-            >
-              <FiDownload className="text-lg shrink-0" />
-              {excelExporting ? 'Preparing Excel…' : 'Download as Excel'}
-            </button>
           </div>
         </div>
       </div>

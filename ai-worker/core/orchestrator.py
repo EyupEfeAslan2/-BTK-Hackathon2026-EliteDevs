@@ -45,7 +45,7 @@ class FinancialAnalysisOrchestrator:
         risk_task = self.risk_agent.create_risk_assessment_task({"symbols": symbols})
         risk_task.description = f"{risk_task.description}\n\n{raw_json_instruction}"
         if requested_amount:
-            risk_task.description += f"\n\nThe user is specifically requesting a loan of {requested_amount}. You MUST evaluate if their financial telemetry (liquidity, cash flow) can support this exact debt burden. If it is too high, you MUST REJECT or severely CONDITIONAL the request."
+            risk_task.description += f"\n\nThe user is specifically requesting a loan of {requested_amount}. You MUST evaluate if their financial telemetry (liquidity, cash flow) can support this exact debt burden. If it is too high, you MUST REJECT or issue a CONDITIONAL decision on the request."
         risk_task.context = [data_task, analysis_task, compliance_task]
         
         crew = Crew(

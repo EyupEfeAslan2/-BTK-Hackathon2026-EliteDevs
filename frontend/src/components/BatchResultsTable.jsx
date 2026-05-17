@@ -3,6 +3,7 @@ import { FiDownload } from 'react-icons/fi';
 import {
   exportBatchAnalysisPdf,
   exportBatchAnalysisExcel,
+  sanitizeReportCopy,
 } from '../utils/creditMemoExport';
 
 const getDecisionBadgeClass = (decision) => {
@@ -59,6 +60,7 @@ export default function BatchResultsTable({ results }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto animate-fade-in">
+
       <div id="batch-results-content" className="w-full">
         <div className="mb-6">
           <h2 className="text-2xl md:text-3xl font-bold font-mono text-slate-950 dark:text-slate-100 uppercase tracking-wide">
@@ -70,6 +72,44 @@ export default function BatchResultsTable({ results }) {
           <p className="mt-1 text-xs font-mono text-slate-400 dark:text-slate-600">
             Generated: {new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC
           </p>
+        </div>
+
+        {/* Excel, PDF */}
+        <div className="w-full max-w-7xl mx-auto pdf-exclude mb-8 md:mb-6">
+          <div className="w-full p-5 md:p-6 rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/5 shadow-lg relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-500" />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <FiDownload className="text-emerald-600 dark:text-emerald-400 text-lg" />
+                <h4 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-300 uppercase tracking-wide font-semibold">
+                  Export Analysis
+                </h4>
+              </div>
+              <span className="w-fit rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
+                Download Options
+              </span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full justify-start">
+              <button
+                type="button"
+                onClick={() => void exportPDF()}
+                disabled={pdfExporting}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+              >
+                <FiDownload className="text-lg shrink-0" />
+                {pdfExporting ? 'Preparing PDF…' : 'PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportExcel()}
+                disabled={excelExporting}
+                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
+              >
+                <FiDownload className="text-lg shrink-0" />
+                {excelExporting ? 'Preparing Excel…' : 'Excel'}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] shadow-xl">
@@ -132,38 +172,13 @@ export default function BatchResultsTable({ results }) {
                 </span>
               </div>
               <p className="text-sm text-slate-700 dark:text-slate-400 leading-relaxed">
-                {item?.data?.justification_summary || 'No justification summary available.'}
+                {sanitizeReportCopy(item?.data?.justification_summary) || 'No justification summary available.'}
               </p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="w-full flex flex-col items-center gap-3 border-t border-emerald-200 dark:border-emerald-500/20 pt-8 mt-8">
-        <p className="text-center text-sm md:text-base text-emerald-700 dark:text-slate-500 font-mono">
-          Download this batch analysis as PDF or Excel.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto justify-center">
-          <button
-            type="button"
-            onClick={() => void exportPDF()}
-            disabled={pdfExporting}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-          >
-            <FiDownload className="text-lg shrink-0" />
-            {pdfExporting ? 'Preparing PDF…' : 'Download as PDF'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportExcel()}
-            disabled={excelExporting}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-base md:text-lg font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-          >
-            <FiDownload className="text-lg shrink-0" />
-            {excelExporting ? 'Preparing Excel…' : 'Download as Excel'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

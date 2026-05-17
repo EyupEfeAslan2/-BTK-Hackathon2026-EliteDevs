@@ -114,8 +114,43 @@ function prepareClonedDomForCanvas(origRoot, clonedDoc) {
   walkElements(cloneRoot);
 }
 
+const PDF_EXCLUDE_SELECTOR = '.pdf-exclude, .hidden-print, .summary-section, [data-pdf-exclude]';
+
+/** Normalize AI-generated copy for display and PDF export. */
+export function sanitizeReportCopy(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/\bdecided to conditional the request\b/gi, 'decided to conditionally approve the request')
+    .replace(/\bseverely CONDITIONAL the request\b/gi, 'issue a CONDITIONAL decision on the request')
+    .replace(/\bREJECT or severely CONDITIONAL\b/gi, 'REJECT or issue a CONDITIONAL decision on');
+}
+
+function removePdfExcludedElements(clonedDoc, contentRootId) {
+  const root = clonedDoc.getElementById(contentRootId);
+  if (!root) return;
+
+  root.querySelectorAll(PDF_EXCLUDE_SELECTOR).forEach((el) => {
+    el.remove();
+  });
+
+  root.querySelectorAll('button, input, select, textarea, label[for]').forEach((el) => {
+    el.remove();
+  });
+}
+
+function sanitizePdfTextNodes(clonedDoc) {
+  const walker = clonedDoc.createTreeWalker(clonedDoc.body, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    node.textContent = sanitizeReportCopy(node.textContent);
+    node = walker.nextNode();
+  }
+}
+
 function buildPdfCloneHandler(element, contentRootId) {
   return (clonedDoc) => {
+    removePdfExcludedElements(clonedDoc, contentRootId);
+
     const clonedElement = clonedDoc.getElementById(contentRootId);
 
     if (clonedElement) {
@@ -135,6 +170,8 @@ function buildPdfCloneHandler(element, contentRootId) {
       svg.remove();
     });
 
+    sanitizePdfTextNodes(clonedDoc);
+
     const style = clonedDoc.createElement('style');
     style.innerHTML = `
       * {
@@ -149,8 +186,10 @@ function buildPdfCloneHandler(element, contentRootId) {
         break-inside: avoid !important;
         page-break-inside: avoid !important;
       }
-      svg { display: none !important; }
-      .hidden { display: none !important; }
+      svg, button, input, select, textarea { display: none !important; }
+      .pdf-exclude, .hidden-print, .summary-section, [data-pdf-exclude] {
+        display: none !important;
+      }
       body {
         margin: 0;
         padding: 0;
@@ -345,7 +384,7 @@ export function buildSingleAnalysisWorkbook(data, ticker) {
   const defaultRiskLevel = data?.default_risk_level || 'N/A';
   const recommendedTerms = data?.recommended_loan_terms || {};
   const covenants = data?.recommended_loan_terms?.covenants || [];
-  const justificationSummary = data?.justification_summary || 'N/A';
+  const justificationSummary = sanitizeReportCopy(data?.justification_summary) || 'N/A';
   const agentVotes = Array.isArray(data?.agent_votes) ? data.agent_votes : [];
   const rawTelemetry = data?.raw_telemetry && typeof data.raw_telemetry === 'object' ? data.raw_telemetry : null;
   const hasRawTelemetry = rawTelemetry && Object.keys(rawTelemetry).length > 0;
@@ -544,7 +583,7 @@ export function buildBatchAnalysisWorkbook(results) {
     const defaultRiskLevel = data?.default_risk_level || 'N/A';
     const recommendedTerms = data?.recommended_loan_terms || {};
     const covenants = data?.recommended_loan_terms?.covenants || [];
-    const justificationSummary = data?.justification_summary || 'N/A';
+    const justificationSummary = sanitizeReportCopy(data?.justification_summary) || 'N/A';
     const agentVotes = Array.isArray(data?.agent_votes) ? data.agent_votes : [];
     const rawTelemetry = data?.raw_telemetry && typeof data.raw_telemetry === 'object' ? data.raw_telemetry : null;
 

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FiSearch, FiCpu, FiChevronDown } from 'react-icons/fi';
+import { FiSearch, FiCpu, FiChevronDown, FiMail, FiMapPin  } from 'react-icons/fi';
 import TerminalLoading from './components/TerminalLoading';
 import Dashboard from './components/Dashboard';
 import BatchResultsTable from './components/BatchResultsTable';
 import CompanyCombobox, { TOP_50_COMPANIES } from './components/CompanyCombobox';
-import ThemeToggle from './components/ThemeToggle';
-import { useThemeStore } from './store/themeStore';
+import ThemeToggle from './components/ThemeToggle';import { useThemeStore } from './store/themeStore'; import RateLimitTest from './components/test/RateLimitTest'
+
 
 import './App.css';
 
@@ -309,20 +309,20 @@ function App() {
           )}
         </div>
       </main>
-      <footer className="border-t border-emerald-500/20 bg-white dark:bg-[#050508] py-12 px-6 transition-colors duration-300">
+            <footer className="border-t border-emerald-500/20 bg-white dark:bg-[#050508] py-12 px-6 transition-colors duration-300">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
           
-          {/* Marka ve Tanıtım */}
+          {/* 1. Sütun: Marka ve Tanıtım */}
           <div className="space-y-4">
             <h3 className="font-mono font-bold text-emerald-600 dark:text-emerald-400 tracking-tighter text-lg">
               COREMINE RISK
             </h3>
             <p className="text-sm text-slate-600 dark:text-slate-400 font-mono leading-relaxed">
-              CoreMine RISK offers transparent and auditable decision support mechanisms with multi-agent systems in B2B credit risk analysis..
+              CoreMine RISK offers transparent and auditable decision support mechanisms with multi-agent systems in B2B credit risk analysis.
             </p>
           </div>
 
-          {/* FAQ */}
+          {/* 2. Sütun: FAQ */}
           <div className="space-y-4">
             <h4 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-emerald-500/80">FAQ</h4>
             <div className="space-y-2">
@@ -381,15 +381,46 @@ function App() {
               </div>
             </div>
           </div>
-    
+
+          {/* 3. Sütun: İletişim Bilgileri */}
+          <div className="space-y-4 md:ml-auto md:max-w-xs w-full">
+            <h4 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-emerald-500/80">
+              Contact Us
+            </h4>
+            <div className="space-y-3 font-mono text-xs">
+              {/* Konum */}
+              <div className="flex items-start space-x-3 text-slate-600 dark:text-slate-400">
+                <FiMapPin className="text-emerald-600 dark:text-emerald-400 text-base mt-0.5 flex-shrink-0" />
+                <span className="leading-relaxed">
+                  Gölbaşı, Ankara / Turkey
+                </span>
+              </div>
+              
+              {/* E-posta */}
+              <div className="flex items-center space-x-3">
+                <FiMail className="text-emerald-600 dark:text-emerald-400 text-base flex-shrink-0" />
+                <a 
+                  href="mailto:elitedevs.hackathon@gmail.com" 
+                  className="text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors duration-300 underline underline-offset-4 decoration-emerald-500/30 hover:decoration-emerald-500"
+                >
+                  elitedevs2026@gmail.com
+                </a>
+              </div>
+            </div>
+          </div>
+
         </div>
 
+        {/* Alt Telif Hakkı Çizgisi */}
         <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-slate-100 dark:border-emerald-500/10 flex justify-between items-center">
           <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">
             © 2026 CoreMine Risk — EliteDevs Hackathon Team
           </p>
         </div>
       </footer>
+      
+      {/* Rate Limit Test Panel - Dev Only */}
+      {import.meta.env.DEV && <RateLimitTest />}
     </div>
   );
 }
