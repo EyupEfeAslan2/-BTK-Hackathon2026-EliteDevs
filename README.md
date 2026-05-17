@@ -2,7 +2,7 @@
 
 <br/>
 
-<img src="frontend/src/assets/images/logo.svg" alt="CoreMine Risk Logo" width="80" height="80" />
+<img src="assets/images/logo.svg" alt="CoreMine Risk Logo" width="80" height="80" />
 
 # CoreMine Risk
 
@@ -25,7 +25,7 @@
 
 <br/>
 
-**[Live Demo](https://btk-hackathon2026-elitedevs.netlify.app/) · [Architecture](#architecture) · [Quick Start](#-quick-start) · [API Docs](#-api-reference) · [Contributing](#-contributing)**
+**[Live Demo](https://btk-hackaton-2026-elitedevs.netlify.app/) · [Architecture](#architecture) · [Quick Start](#-quick-start) · [API Docs](#-api-reference) · [Contributing](#-contributing)**
 
 <br/>
 
