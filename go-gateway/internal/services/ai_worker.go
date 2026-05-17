@@ -13,8 +13,8 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-// client is configured with a 120-second timeout for the multi-agent consensus
-var client = resty.New().SetTimeout(120 * time.Second)
+// client is configured with a 180-second (3 min) timeout for the multi-agent consensus
+var client = resty.New().SetTimeout(3 * time.Minute)
 
 var markdownJSONFencePattern = regexp.MustCompile("(?is)^\\s*```(?:json)?\\s*(.*?)\\s*```\\s*$")
 

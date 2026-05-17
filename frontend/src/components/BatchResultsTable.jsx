@@ -28,7 +28,7 @@ const getRiskBadgeClass = (risk) => {
   return 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-300 dark:border-cyan-500/30';
 };
 
-export default function BatchResultsTable({ results }) {
+export default function BatchResultsTable({ results, onRowClick }) {
   const [pdfExporting, setPdfExporting] = useState(false);
   const [excelExporting, setExcelExporting] = useState(false);
 
@@ -126,7 +126,11 @@ export default function BatchResultsTable({ results }) {
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {results.map((item) => (
-                  <tr key={item.ticker} className="hover:bg-slate-50 dark:hover:bg-slate-900/70 transition-colors">
+                  <tr
+                    key={item.ticker}
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-900/70 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRowClick && onRowClick(item)}
+                  >
                     <td className="px-5 py-4 font-mono text-sm md:text-base font-bold text-slate-950 dark:text-slate-100">
                       {item.ticker}
                     </td>
