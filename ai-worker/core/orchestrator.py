@@ -171,17 +171,6 @@ class FinancialAnalysisOrchestrator:
             "timestamp": datetime.now().isoformat()
         }
 
-        # --- Slack Notification ---
-        try:
-            memo = final_results.get("credit_committee_memo", {})
-            self.notify_slack(
-                symbols,
-                memo.get("committee_decision", "UNKNOWN"),
-                memo.get("recommended_loan_terms", {}).get("max_amount", "N/A")
-            )
-        except Exception as slack_err:
-            logger.warning(f"Slack notification failed: {slack_err}")
-
         return final_results
     
     def generate_credit_committee_memo(self, 
@@ -194,8 +183,10 @@ class FinancialAnalysisOrchestrator:
         # If no risk recommendations are available
         recommendations = risk.get("recommendations", {}).get("individual_decisions", {})
         
+        final_results = {}
+        
         if not recommendations and symbols:
-            return {
+            final_results = {
                 "committee_decision": "MANUAL_REVIEW",
                 "default_risk_level": "UNKNOWN",
                 "recommended_loan_terms": {
@@ -225,7 +216,7 @@ class FinancialAnalysisOrchestrator:
             }
             
         # For a single symbol (most common use case in this app)
-        if len(symbols) == 1 or len(recommendations) == 1:
+        elif len(symbols) == 1 or len(recommendations) == 1:
             symbol = symbols[0] if symbols else list(recommendations.keys())[0]
             rec = recommendations.get(symbol, {})
             
@@ -234,15 +225,8 @@ class FinancialAnalysisOrchestrator:
                 compliance
             )
 
-            # --- Strict Compliance Veto ---
-            committee_decision = rec.get("committee_decision", "CONDITIONAL")
-            for vote in agent_votes:
-                if vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
-                    committee_decision = "REJECTED"
-                    break
-
-            return {
-                "committee_decision": committee_decision,
+            final_results = {
+                "committee_decision": rec.get("committee_decision", "CONDITIONAL"),
                 "default_risk_level": rec.get("default_risk_level", "MEDIUM"),
                 "recommended_loan_terms": rec.get("recommended_loan_terms", {
                     "max_amount": "$0M",
@@ -255,36 +239,54 @@ class FinancialAnalysisOrchestrator:
             }
         
         # If multiple symbols are requested, aggregate them into a portfolio memo
-        overall_resolution = risk.get("recommendations", {}).get("overall_resolution", {})
-        
-        return {
-            "committee_decision": "CONDITIONAL",
-            "default_risk_level": overall_resolution.get("market_outlook", "MEDIUM"),
-            "recommended_loan_terms": {
-                "max_amount": "Portfolio Level",
-                "tenor": "Various",
-                "covenants": ["Portfolio covenants apply"]
-            },
-            "justification_summary": f"Portfolio analysis for {len(symbols)} entities. Strategy: {overall_resolution.get('strategy', 'BALANCED_PORTFOLIO')}.",
-            "raw_telemetry": self.extract_raw_telemetry(symbols, data, analysis),
-            "agent_votes": [
-                {
-                    "agent_name": "Risk Auditor",
-                    "vote": "CONDITIONAL",
-                    "brief_reason": "Portfolio exposure requires diversified covenants and monitoring."
+        else:
+            overall_resolution = risk.get("recommendations", {}).get("overall_resolution", {})
+            
+            final_results = {
+                "committee_decision": "CONDITIONAL",
+                "default_risk_level": overall_resolution.get("market_outlook", "MEDIUM"),
+                "recommended_loan_terms": {
+                    "max_amount": "Portfolio Level",
+                    "tenor": "Various",
+                    "covenants": ["Portfolio covenants apply"]
                 },
-                {
-                    "agent_name": "Advocate",
-                    "vote": "CONDITIONAL",
-                    "brief_reason": "A balanced portfolio structure can support selective lending."
-                },
-                {
-                    "agent_name": "Compliance",
-                    "vote": "CONDITIONAL",
-                    "brief_reason": "Each borrower requires entity-level compliance confirmation."
-                }
-            ]
-        }
+                "justification_summary": f"Portfolio analysis for {len(symbols)} entities. Strategy: {overall_resolution.get('strategy', 'BALANCED_PORTFOLIO')}.",
+                "raw_telemetry": self.extract_raw_telemetry(symbols, data, analysis),
+                "agent_votes": [
+                    {
+                        "agent_name": "Risk Auditor",
+                        "vote": "CONDITIONAL",
+                        "brief_reason": "Portfolio exposure requires diversified covenants and monitoring."
+                    },
+                    {
+                        "agent_name": "Advocate",
+                        "vote": "CONDITIONAL",
+                        "brief_reason": "A balanced portfolio structure can support selective lending."
+                    },
+                    {
+                        "agent_name": "Compliance",
+                        "vote": "CONDITIONAL",
+                        "brief_reason": "Each borrower requires entity-level compliance confirmation."
+                    }
+                ]
+            }
+
+        # --- CRITICAL VETO ---
+        for vote in final_results.get("agent_votes", []):
+            if vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
+                final_results["committee_decision"] = "REJECTED"
+                break
+
+        try:
+            self.notify_slack(
+                symbols,
+                final_results.get("committee_decision", "UNKNOWN"),
+                final_results.get("recommended_loan_terms", {}).get("max_amount", "N/A")
+            )
+        except Exception as e:
+            logger.warning(f"Slack notification failed: {e}")
+
+        return final_results
 
     def extract_raw_telemetry(
             self,
@@ -357,11 +359,11 @@ class FinancialAnalysisOrchestrator:
 
         decision_upper = str(decision).upper()
         if "APPROVE" in decision_upper:
-            color = "#2eb886"   # Green
+            color = "#10b981"   # Green
         elif "REJECT" in decision_upper:
-            color = "#e01e5a"   # Red
+            color = "#ef4444"   # Red
         else:
-            color = "#daa038"   # Amber
+            color = "#f59e0b"   # Amber
 
         payload = {
             "attachments": [
@@ -380,10 +382,10 @@ class FinancialAnalysisOrchestrator:
         }
 
         try:
-            resp = requests.post(webhook_url, json=payload, timeout=5)
+            resp = requests.post(webhook_url, json=payload, timeout=2)
             resp.raise_for_status()
             logger.info(f"Slack notification sent for {symbols} — {decision}")
-        except requests.RequestException as e:
+        except Exception as e:
             logger.warning(f"Slack webhook request failed: {e}")
 
     def parse_crew_result(self, result: Any) -> Any:
