@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { FiAlertTriangle, FiBriefcase, FiCpu, FiFileText, FiShield, FiDownload, FiZap, FiDatabase, FiX } from 'react-icons/fi';
+import { FiAlertTriangle, FiBriefcase, FiCpu, FiFileText, FiShield, FiDownload, FiZap, FiDatabase, FiX, FiArrowLeft } from 'react-icons/fi';
 import { useThemeStore } from '../store/themeStore';
 import {
   exportSingleAnalysisPdf,
@@ -10,7 +10,7 @@ import {
   sanitizeReportCopy,
 } from '../utils/creditMemoExport';
 
-const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
+const Dashboard = ({ data, error, ticker, onSimulationResult, onBackToBatch, hasBatchHistory }) => {
   const { isDark } = useThemeStore();
   const [pdfExporting, setPdfExporting] = useState(false);
   const [excelExporting, setExcelExporting] = useState(false);
@@ -118,7 +118,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
       ? 'border-red-500/40 bg-red-950/20 cyber-glow-red text-red-500'
       : 'border-amber-500/40 bg-amber-950/20 text-amber-950 dark:text-amber-400';
 
-  return (
+return (
     <>
       <style>{`
         @media print {
@@ -182,47 +182,14 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
             </div>
           </div>
 
-          {/* export controls live outside dashboard-content */}
+          {/* Export controls placeholder */}
           <div className="hidden pdf-exclude" aria-hidden="true" style={{ display: 'none' }}>
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 to-cyan-500"></div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <FiDownload className="text-emerald-600 dark:text-emerald-400 text-lg" />
-                <h4 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-300 uppercase tracking-wide font-semibold">
-                  Export Analysis
-                </h4>
-              </div>
-              <span className="w-fit rounded-full border border-emerald-200 dark:border-emerald-500/30 bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 text-xs font-mono font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">
-                Download Options
-              </span>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full justify-start">
-              <button
-                type="button"
-                onClick={() => void exportPDF()}
-                disabled={pdfExporting}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-white dark:text-emerald-200 border-emerald-600 dark:border-emerald-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-              >
-                <FiDownload className="text-lg shrink-0" />
-                {pdfExporting ? 'Preparing PDF…' : 'PDF'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void exportExcel()}
-                disabled={excelExporting}
-                className="flex items-center gap-2 px-6 py-3 rounded-lg font-mono text-sm md:text-base font-semibold border transition-colors duration-200 bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-white dark:text-cyan-200 border-cyan-600 dark:border-cyan-500/40 disabled:opacity-50 disabled:pointer-events-none cyber-glow"
-              >
-                <FiDownload className="text-lg shrink-0" />
-                {excelExporting ? 'Preparing Excel…' : 'Excel'}
-              </button>
-            </div>
+            {/* ... */}
           </div>
 
+          {/* Üst Karar Kartları (3'lü Grid) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
             <div className={`p-6 rounded-xl border backdrop-blur-sm relative overflow-hidden ${signalClass}`}>
-              <div className="absolute -right-6 -top-6 opacity-10 hidden">
-                <FiShield size={120} />
-              </div>
               <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Overall AI Signal:</div>
               <div className="flex items-end gap-4">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight whitespace-normal break-words leading-tight text-slate-950 dark:text-slate-100">
@@ -232,9 +199,6 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
             </div>
 
             <div className="p-6 rounded-xl border border-cyan-500/40 bg-cyan-50 dark:bg-cyan-950/20 cyber-glow-blue backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute -right-6 -top-6 opacity-10 hidden">
-                <FiAlertTriangle size={120} />
-              </div>
               <div className="text-sm text-emerald-700 dark:text-slate-400 mb-2 font-mono uppercase tracking-widest">Credit Default Risk:</div>
               <div className="flex items-end gap-4">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight whitespace-normal break-words leading-tight text-cyan-900 dark:text-cyan-300">
@@ -248,17 +212,14 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
               <div className="text-4xl md:text-5xl font-bold text-emerald-900 dark:text-slate-200">
                 {committeeDecision || 'N/A'}
               </div>
-              <div className="mt-4 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 hidden">
-                <FiFileText />
-              </div>
               <p className="mt-4 text-xs text-emerald-600 dark:text-emerald-400">Structured credit committee output</p>
             </div>
           </div>
 
+          {/* AI Consensus Justification */}
           <div className="mb-8 p-6 rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-[#0b0f19] shadow-lg relative overflow-hidden" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
             <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${isRejected ? 'from-red-500 to-orange-500' : 'from-emerald-400 to-cyan-500'}`}></div>
             <h3 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-widest flex items-center gap-2">
-              <span className="hidden"><FiCpu /></span>
               AI CONSENSUS JUSTIFICATION
             </h3>
             <p className="text-emerald-900 dark:text-slate-300 font-mono text-sm md:text-base leading-relaxed pl-2">
@@ -266,14 +227,17 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
             </p>
           </div>
 
+          {/* İki Sütunlu Ana Dashboard Alanı */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            
+            {/* SOL GENİŞ KISIM (2 Blok Genişliğinde) */}
             <div className="lg:col-span-2 flex flex-col gap-6 justify-start">
+              
+              {/* RECOMMENDED LOAN TERMS */}
               <div className="p-6 rounded-xl border border-emerald-200 dark:border-slate-800 bg-emerald-50 dark:bg-[#0b0f19] shadow-lg" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                 <h3 className="text-lg md:text-xl font-semibold mb-6 flex items-center gap-2 font-mono border-b border-emerald-200 dark:border-slate-800 pb-4">
-                  <span className="hidden"><FiBriefcase className="text-cyan-600 dark:text-cyan-400" /></span>
                   RECOMMENDED LOAN TERMS
                 </h3>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
                     <div className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Max Amount:</div>
@@ -284,7 +248,6 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                     <div className="text-4xl md:text-5xl font-bold text-emerald-900 dark:text-slate-100">{recommendedTerms?.tenor || 'N/A'}</div>
                   </div>
                 </div>
-
                 <div>
                   <h4 className="text-sm md:text-base font-mono text-emerald-700 dark:text-slate-400 mb-3 uppercase">Covenants</h4>
                   <ul className="space-y-2 text-sm md:text-base text-emerald-900 dark:text-slate-300">
@@ -304,7 +267,7 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                 </div>
               </div>
 
-              {/* ── WHAT-IF SIMULATION PANEL ── */}
+              {/* WHAT-IF SIMULATION PANEL */}
               <div className="w-full max-w-full p-5 md:p-6 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-white dark:bg-slate-900/80 shadow-lg shadow-amber-500/10 relative overflow-hidden pdf-exclude" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-orange-500 to-emerald-500"></div>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5 min-w-0">
@@ -318,7 +281,6 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                     What-if Analysis
                   </span>
                 </div>
-
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_auto] gap-5 xl:items-end min-w-0">
                   <div className="min-w-0">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2 mb-3 min-w-0">
@@ -342,7 +304,6 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                       <span className="text-right">$500M</span>
                     </div>
                   </div>
-
                   <button
                     type="button"
                     onClick={handleSimulate}
@@ -366,15 +327,43 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                   </button>
                 </div>
               </div>
+
+              {/* ← BURAYA ALINDI: AGENT AUDIT LOG (Artık yatay ve simetrik) */}
+              {agentVotes.length > 0 ? (
+                <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] shadow-lg w-full" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                  <h3 className="text-lg md:text-xl font-semibold mb-5 flex items-center gap-2 font-mono border-b border-slate-200 dark:border-slate-800 pb-4 text-slate-900 dark:text-slate-200">
+                    AGENT AUDIT LOG
+                  </h3>
+                  {/* space-y-3 yerine grid-cols-2 yapılarak yatayda mükemmel dağıtıldı */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {agentVotes.map((agentVote, idx) => (
+                      <div key={`${agentVote?.agent_name || 'agent'}-${idx}`} className="rounded-lg border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/70 p-4 flex flex-col justify-between">
+                        <div className="mb-2">
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="text-sm md:text-base font-semibold text-slate-900 dark:text-slate-200 break-words">
+                              {agentVote?.agent_name || 'Agent'}
+                            </span>
+                            <span className={`w-fit px-2.5 py-1 rounded-md border text-[11px] font-mono font-bold uppercase tracking-wide ${getVoteBadgeClass(agentVote?.vote)}`}>
+                              {agentVote?.vote || 'CONDITIONAL'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-700 dark:text-slate-400 leading-relaxed break-words">
+                            {agentVote?.brief_reason || 'Automated agent vote recorded.'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
+            {/* SAĞ DAR KISIM (1 Blok Genişliğinde) */}
             <div className="lg:col-span-1 flex flex-col gap-6 justify-start">
               <div className="p-6 rounded-xl border border-emerald-200 dark:border-slate-800 bg-emerald-50 dark:bg-[#0b0f19] shadow-lg" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                 <h3 className="text-lg md:text-xl font-semibold mb-6 flex items-center gap-2 font-mono border-b border-emerald-200 dark:border-slate-800 pb-4">
-                  <span className="hidden"><FiShield className="text-amber-500 dark:text-amber-400" /></span>
                   Committee Snapshot
                 </h3>
-
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 rounded bg-white dark:bg-slate-800/50 border border-emerald-200 dark:border-slate-700/50">
                     <span className="text-sm md:text-base text-emerald-900 dark:text-slate-300">Decision:</span>
@@ -421,37 +410,13 @@ const Dashboard = ({ data, error, ticker, onSimulationResult }) => {
                   View Raw Telemetry
                 </button>
               ) : null}
-
-              {agentVotes.length > 0 ? (
-                <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] shadow-lg" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                  <h3 className="text-lg md:text-xl font-semibold mb-5 flex items-center gap-2 font-mono border-b border-slate-200 dark:border-slate-800 pb-4 text-slate-900 dark:text-slate-200">
-                    AGENT AUDIT LOG
-                  </h3>
-
-                  <div className="space-y-3">
-                    {agentVotes.map((agentVote, idx) => (
-                      <div key={`${agentVote?.agent_name || 'agent'}-${idx}`} className="rounded-lg border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/70 p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                          <span className="text-sm md:text-base font-semibold text-slate-900 dark:text-slate-200 break-words">
-                            {agentVote?.agent_name || 'Agent'}
-                          </span>
-                          <span className={`w-fit px-2.5 py-1 rounded-md border text-[11px] font-mono font-bold uppercase tracking-wide ${getVoteBadgeClass(agentVote?.vote)}`}>
-                            {agentVote?.vote || 'CONDITIONAL'}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-700 dark:text-slate-400 leading-relaxed break-words">
-                          {agentVote?.brief_reason || 'Automated agent vote recorded.'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
+
           </div>
         </div>
       </div>
 
+      {/* Raw Telemetry Modal */}
       {telemetryOpen && hasRawTelemetry ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm">
           <div className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b0f19] shadow-2xl">

@@ -49,7 +49,7 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
     };
 
     return (
-      <div className="w-full max-w-7xl mx-auto animate-fade-in">
+      <div className="w-full max-w-7xl mx-auto font-sans animate-fade-in text-slate-900 dark:text-slate-200 text-base md:text-lg transition-colors duration-300">
         {/* Geri Dönüş Button'ı */}
         <button
           onClick={onBackToTable}
@@ -60,11 +60,11 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
         </button>
 
         {/* Seçili Item'ın Detaylı Gösterimi */}
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] p-6 space-y-6">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] p-6 space-y-6 shadow-xl">
           {/* Header */}
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-3xl font-bold font-mono text-slate-950 dark:text-slate-100 uppercase tracking-wide">
+              <h2 className="text-3xl md:text-4xl font-bold font-mono text-slate-950 dark:text-slate-100 uppercase tracking-wide">
                 {selectedItem.ticker}
               </h2>
               <span className={`inline-flex rounded-md border px-3 py-1 text-xs font-mono font-bold uppercase tracking-wide ${getDecisionBadgeClass(selectedItem?.data?.committee_decision)}`}>
@@ -74,56 +74,57 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
                 {selectedItem?.data?.default_risk_level || 'UNKNOWN'}
               </span>
             </div>
-            <p className="text-sm font-mono text-slate-500 dark:text-slate-500">
-              Detailed credit committee analysis
+            <p className="text-sm font-mono text-slate-500 dark:text-slate-400">
+              Detailed credit committee analysis // yfinance provenance layer
             </p>
           </div>
 
-          {/* Justification Summary */}
-          <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/5 p-4">
-            <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-emerald-900 dark:text-emerald-300 mb-3">
-              Committee Justification
+          {/* Justification Summary (Örnek şablonunla birebir eşitlendi) */}
+          <div className="rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-[#0b0f19] p-6 shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-emerald-400 to-cyan-500"></div>
+            <h3 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-widest flex items-center gap-2">
+              AI CONSENSUS JUSTIFICATION
             </h3>
-            <p className="text-sm text-emerald-800 dark:text-emerald-200 leading-relaxed">
+            <p className="text-emerald-900 dark:text-slate-300 font-mono text-sm md:text-base leading-relaxed pl-2">
               {sanitizeReportCopy(selectedItem?.data?.justification_summary) || 'No justification available.'}
             </p>
           </div>
 
-          {/* Recommended Loan Terms */}
+          {/* Recommended Loan Terms (Örnek şablon başlık ve grid yapısıyla eşitlendi) */}
           {selectedItem?.data?.recommended_loan_terms && (
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
-              <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100 mb-4">
-                Recommended Loan Terms
+            <div className="p-6 rounded-xl border border-emerald-200 dark:border-slate-800 bg-emerald-50 dark:bg-[#0b0f19] shadow-lg">
+              <h3 className="text-lg md:text-xl font-semibold mb-6 flex items-center gap-2 font-mono border-b border-emerald-200 dark:border-slate-800 pb-4 text-slate-900 dark:text-slate-200">
+                RECOMMENDED LOAN TERMS
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {selectedItem.data.recommended_loan_terms.max_amount && (
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono uppercase">Max Amount</p>
-                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
+                    <p className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Max Amount</p>
+                    <p className="text-3xl font-bold text-emerald-900 dark:text-slate-100 font-mono">
                       {selectedItem.data.recommended_loan_terms.max_amount}
                     </p>
                   </div>
                 )}
                 {selectedItem.data.recommended_loan_terms.tenor && (
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono uppercase">Tenor</p>
-                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
+                    <p className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Tenor</p>
+                    <p className="text-3xl font-bold text-emerald-900 dark:text-slate-100 font-mono">
                       {selectedItem.data.recommended_loan_terms.tenor}
                     </p>
                   </div>
                 )}
                 {selectedItem.data.recommended_loan_terms.interest_rate && (
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono uppercase">Interest Rate</p>
-                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
+                    <p className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Interest Rate</p>
+                    <p className="text-3xl font-bold text-emerald-900 dark:text-slate-100 font-mono">
                       {selectedItem.data.recommended_loan_terms.interest_rate}
                     </p>
                   </div>
                 )}
                 {selectedItem.data.recommended_loan_terms.required_covenants && (
-                  <div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-mono uppercase">Covenants</p>
-                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono">
+                  <div className="bg-white dark:bg-slate-900/80 rounded-lg p-4 border border-emerald-200 dark:border-slate-700">
+                    <p className="text-xs text-emerald-700 dark:text-slate-500 font-mono uppercase tracking-widest mb-2">Covenants</p>
+                    <p className="text-base font-bold text-emerald-900 dark:text-slate-100 font-mono truncate">
                       {selectedItem.data.recommended_loan_terms.required_covenants}
                     </p>
                   </div>
@@ -132,26 +133,28 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
             </div>
           )}
 
-          {/* Agent Votes */}
+          {/* Agent Votes -> AGENT AUDIT LOG (Log kartları font-sans akıcılığına kavuştu) */}
           {selectedItem?.data?.agent_votes && Array.isArray(selectedItem.data.agent_votes) && (
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
-              <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100 mb-4">
-                Agent Committee Votes
+            <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] shadow-lg w-full">
+              <h3 className="text-lg md:text-xl font-semibold mb-5 flex items-center gap-2 font-mono border-b border-slate-200 dark:border-slate-800 pb-4 text-slate-900 dark:text-slate-200">
+                AGENT AUDIT LOG
               </h3>
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedItem.data.agent_votes.map((vote, idx) => (
-                  <div key={idx} className="flex items-start justify-between border border-slate-200 dark:border-slate-700 rounded-lg p-3 bg-white dark:bg-slate-800/50">
-                    <div>
-                      <p className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {vote.agent_name}
-                      </p>
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        {vote.brief_reason}
+                  <div key={idx} className="rounded-lg border border-slate-200 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/70 p-4 flex flex-col justify-between">
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-sm md:text-base font-semibold text-slate-900 dark:text-slate-200 break-words">
+                          {vote.agent_name}
+                        </span>
+                        <span className={`w-fit px-2.5 py-1 rounded-md border text-[11px] font-mono font-bold uppercase tracking-wide ${getDecisionBadgeClass(vote.vote)}`}>
+                          {vote.vote}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-700 dark:text-slate-400 leading-relaxed break-words mt-1">
+                        {vote.brief_reason || 'Automated agent vote recorded.'}
                       </p>
                     </div>
-                    <span className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-mono font-bold uppercase tracking-wide ${getDecisionBadgeClass(vote.vote)}`}>
-                      {vote.vote}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -160,9 +163,9 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
 
           {/* Risk Metrics */}
           {selectedItem?.data?.risk_metrics && (
-            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
-              <h3 className="text-sm font-mono font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100 mb-4">
-                Risk Metrics
+            <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b0f19] shadow-lg">
+              <h3 className="text-lg md:text-xl font-semibold mb-6 flex items-center gap-2 font-mono border-b border-slate-200 dark:border-slate-800 pb-4 text-slate-900 dark:text-slate-200">
+                RISK METRICS
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {Object.entries(selectedItem.data.risk_metrics || {}).map(([key, value]) => (
@@ -170,7 +173,7 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
                     <div className="text-[11px] font-mono uppercase tracking-wide text-slate-500 dark:text-slate-500 mb-1">
                       {key.replace(/_/g, ' ')}
                     </div>
-                    <div className="text-sm md:text-base font-semibold text-slate-950 dark:text-slate-100 break-words">
+                    <div className="text-sm md:text-base font-mono font-semibold text-slate-950 dark:text-slate-100 break-words">
                       {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                     </div>
                   </div>
@@ -192,7 +195,7 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
           ) : null}
         </div>
 
-        {/* MODAL ARTIK APAYRI BİR PORTALDA RENDER EDİLİYOR (Ekrana hapsolmayacak) */}
+        {/* Raw Telemetry Portal */}
         {telemetryOpen && hasRawTelemetry ? createPortal(
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm animate-fade-in">
             <div className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0b0f19] shadow-2xl">
@@ -240,11 +243,11 @@ export default function BatchResultsTable({ results, onSelectResult, onBackToTab
               </div>
             </div>
           </div>,
-          document.body // ← DOM ağacının en dışına bağladık
+          document.body
         ) : null}
       </div>
     );
-  }
+  };
 
   // Table view (default)
   if (!Array.isArray(results) || results.length === 0) return null;
