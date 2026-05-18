@@ -284,6 +284,11 @@ export async function exportElementToPdf(elementId, filenameBase) {
   const element = document.getElementById(elementId);
   if (!element) return;
 
+  window.scrollTo(0, 0);
+
+  const originalPaddingBottom = element.style.paddingBottom;
+  element.style.paddingBottom = '60px';
+
   await new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
@@ -299,6 +304,8 @@ export async function exportElementToPdf(elementId, filenameBase) {
     imageTimeout: 10000,
     onclone: buildPdfCloneHandler(element, elementId),
   });
+
+  element.style.paddingBottom = originalPaddingBottom;
 
   const pdf = new jsPDF({
     orientation: 'portrait',
