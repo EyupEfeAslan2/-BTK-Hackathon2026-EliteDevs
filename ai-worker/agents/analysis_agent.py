@@ -63,8 +63,8 @@ class AnalysisAgent:
             fundamental_results = {}
             
             for symbol, data in stock_data.items():
-                if "error" in data:
-                    fundamental_results[symbol] = {"error": data["error"]}
+                if not isinstance(data, dict) or data.get("error"):
+                    fundamental_results[symbol] = {"error": data.get("error", True) if isinstance(data, dict) else True}
                     continue
                 
                 logger.info(f"Performing fundamental analysis for {symbol}")
@@ -123,12 +123,18 @@ class AnalysisAgent:
     
     def analyze_market_trends(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
+            if not isinstance(market_data, dict):
+                logger.warning(f"market_data is not a dict: type is {type(market_data)}, content: {str(market_data)[:100]}")
+                market_data = {}
             market_indices = market_data.get("market_indices", {})
+            if not isinstance(market_indices, dict): market_indices = {}
             sector_performance = market_data.get("sector_performance", {})
+            if not isinstance(sector_performance, dict): sector_performance = {}
             
             market_trend = "neutral"
             positive_indices = 0
             total_indices = 0
+            positive_ratio = 0.5
             
             for index_data in market_indices.values():
                 if isinstance(index_data, dict) and not index_data.get("error"):
@@ -252,6 +258,8 @@ class AnalysisAgent:
     def get_leading_sectors(self, sector_performance: Dict[str, Any]) -> List[str]:
         sectors = []
         for sector, data in sector_performance.items():
+            if not isinstance(data, dict):
+                continue
             change_pct = data.get("price_change_percent", 0)
             sectors.append((sector, change_pct))
         
@@ -261,6 +269,8 @@ class AnalysisAgent:
     def get_lagging_sectors(self, sector_performance: Dict[str, Any]) -> List[str]:
         sectors = []
         for sector, data in sector_performance.items():
+            if not isinstance(data, dict):
+                continue
             change_pct = data.get("price_change_percent", 0)
             sectors.append((sector, change_pct))
         

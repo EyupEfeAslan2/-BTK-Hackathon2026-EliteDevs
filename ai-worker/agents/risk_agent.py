@@ -146,7 +146,12 @@ class RiskAgent:
                 fund_data = fundamental_analysis.get(symbol, {})
                 risk_data = risk_metrics.get(symbol, {})
                 
-                if "error" in tech_data or "error" in fund_data or "error" in risk_data:
+                if not isinstance(tech_data, dict): tech_data = {}
+                if not isinstance(fund_data, dict): fund_data = {}
+                if not isinstance(risk_data, dict): risk_data = {}
+                
+                # Ignore missing fundamentals and rely on tech/risk
+                if "error" in tech_data and "error" in risk_data:
                     recommendations[symbol] = {
                         "committee_decision": "MANUAL_REVIEW",
                         "justification_summary": "Incomplete analysis data for this entity",
@@ -230,7 +235,9 @@ class RiskAgent:
             }
             
         except Exception as e:
+            import traceback
             logger.error(f"Error generating recommendations: {str(e)}")
+            logger.error(traceback.format_exc())
             return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def execute_risk_assessment(self, analysis_results: Dict[str, Any], requested_amount: Optional[str] = None) -> Dict[str, Any]:
@@ -413,25 +420,13 @@ class RiskAgent:
                                      fundamental_score: float, 
                                      risk_score: float) -> Dict[str, Any]:
         
-        tech_weight = 0.4
-        fund_weight = 0.4
-        risk_weight = 0.2
-        
-        tech_score = 80 if technical_signal == "LOW DEFAULT RISK" else 20 if technical_signal == "HIGH DEFAULT RISK" else 50
-        tech_score *= technical_confidence
-        
-        risk_adjusted_score = 100 - risk_score
-        
-        combined_score = (tech_score * tech_weight + 
-                         fundamental_score * fund_weight + 
-                         risk_adjusted_score * risk_weight)
-        
-        if combined_score >= 60:
+        # Deterministic generation
+        if technical_signal == "LOW DEFAULT RISK" and risk_score < 70:
             action = "APPROVED"
-        elif combined_score >= 40:
-            action = "CONDITIONAL"
-        else:
+        elif technical_signal == "HIGH DEFAULT RISK" or risk_score > 80:
             action = "REJECTED"
+        else:
+            action = "CONDITIONAL"
         
         confidence = min(technical_confidence + 0.2, 1.0)
 
@@ -557,7 +552,21 @@ class RiskAgent:
         return risks
     
     def generate_committee_resolution(self, recommendations: Dict[str, Any]) -> Dict[str, Any]:
-        actions = [rec["committee_decision"] for rec in recommendations.values()]
+        if not recommendations:
+            return {
+                "strategy": "BALANCED_PORTFOLIO",
+                "approve_signals": 0,
+                "reject_signals": 0,
+                "conditional_signals": 0,
+                "market_outlook": "NEUTRAL",
+                "committee_decision": "MANUAL_REVIEW"
+            }
+        
+        actions = [
+            rec.get("committee_decision", "CONDITIONAL") 
+            for rec in recommendations.values() 
+            if isinstance(rec, dict)
+        ]
         
         approve_count = sum(1 for action in actions if action == "APPROVED")
         reject_count = sum(1 for action in actions if action == "REJECTED")

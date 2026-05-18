@@ -6,13 +6,10 @@ import requests
 from typing import Dict, List, Any
 from core.config import settings
 
-# Setup custom session for yfinance to prevent 401 Unauthorized errors
-session = requests.Session()
-session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-})
-# Note: In newer versions of yfinance, we can't globally set_session easily without passing it to Ticker,
-# but we will try to pass it to Ticker directly in the methods to be safe.
+import time
+
+# Note: We rely on yfinance's native curl_cffi session for TLS bypass.
+# We no longer override the global session here.
 
 def fetch_financial_data(ticker):
     if not ticker.endswith('.IS') and is_bist_stock(ticker): 
@@ -82,45 +79,63 @@ class FinancialDataTool:
     def get_stock_data(self, 
                       symbol: str, 
                       period: str = "1y") -> Dict[str, Any]:
-        try:
-            stock = yf.Ticker(symbol, session=session)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                stock = yf.Ticker(symbol)
+                hist = stock.history(period=period)
+                
+                # Verify we actually got data to catch silent rate limits
+                if hist.empty and attempt < max_retries - 1:
+                    raise ValueError(f"Empty history for {symbol}")
+                    
+                current_price = hist['Close'].iloc[-1] if not hist.empty else None
+                price_change = hist['Close'].iloc[-1] - hist['Close'].iloc[-2] if len(hist) > 1 else 0
+                price_change_pct = (price_change / hist['Close'].iloc[-2] * 100) if len(hist) > 1 else 0
+                
+                print("USING SIMPLIFIED DATA PIPELINE v2")
+                # Removed all protected yfinance attributes (info, financials, balance_sheet, cashflow)
+                
+                # Lightweight derived metrics from history if possible
+                derived_metrics = {}
+                if not hist.empty and len(hist) > 10:
+                    closes = hist['Close']
+                    volumes = hist['Volume']
+                    derived_metrics['moving_average_10d'] = float(closes.tail(10).mean())
+                    derived_metrics['moving_average_20d'] = float(closes.tail(20).mean()) if len(closes) >= 20 else float(closes.mean())
+                    derived_metrics['volatility_10d'] = float(closes.tail(10).pct_change().std() * (252**0.5) * 100)
+                    derived_metrics['average_volume_10d'] = float(volumes.tail(10).mean())
+
+                return {
+                    "symbol": symbol,
+                    "data_quality": "PARTIAL",
+                    "missing_modules": ["info", "financials", "balance_sheet", "cashflow"],
+                    "derived_metrics": derived_metrics,
+                    "current_price": float(current_price) if current_price is not None else None,
+                    "price_change": float(price_change) if price_change is not None else 0,
+                    "price_change_percent": float(price_change_pct) if price_change_pct is not None else 0,
+                    "historical_data": self.convert_dataframe_to_dict(hist),
+                    "company_info": {},
+                    "financials": {},
+                    "balance_sheet": {},
+                    "cashflow": {},
+                    "volume": float(hist['Volume'].iloc[-1]) if not hist.empty else None,
+                    "market_cap": None,
+                    "pe_ratio": None,
+                    "dividend_yield": None,
+                    "52_week_high": None,
+                    "52_week_low": None
+                }
             
-            hist = stock.history(period=period)
-            info = stock.info
-            
-            current_price = hist['Close'].iloc[-1] if not hist.empty else None
-            price_change = hist['Close'].iloc[-1] - hist['Close'].iloc[-2] if len(hist) > 1 else 0
-            price_change_pct = (price_change / hist['Close'].iloc[-2] * 100) if len(hist) > 1 else 0
-            
-            financials = stock.financials
-            balance_sheet = stock.balance_sheet
-            cashflow = stock.cashflow
-            
-            return {
-                "symbol": symbol,
-                "current_price": float(current_price) if current_price is not None else None,
-                "price_change": float(price_change) if price_change is not None else 0,
-                "price_change_percent": float(price_change_pct) if price_change_pct is not None else 0,
-                "historical_data": self.convert_dataframe_to_dict(hist),
-                "company_info": info,
-                "financials": self.convert_dataframe_to_dict(financials),
-                "balance_sheet": self.convert_dataframe_to_dict(balance_sheet),
-                "cashflow": self.convert_dataframe_to_dict(cashflow),
-                "volume": float(hist['Volume'].iloc[-1]) if not hist.empty else None,
-                "market_cap": info.get('marketCap'),
-                "pe_ratio": info.get('trailingPE'),
-                "dividend_yield": info.get('dividendYield'),
-                "52_week_high": info.get('fiftyTwoWeekHigh'),
-                "52_week_low": info.get('fiftyTwoWeekLow')
-            }
-            
-        except Exception as e:
-            logger.error(f"Error fetching data for {symbol}: {str(e)}")
-            return {
-                "error": True,
-                "message": f"Failed to fetch data for {symbol}: {str(e)}",
-                "data": {}
-            }
+            except Exception as e:
+                logger.error(f"Error fetching data for {symbol}: {str(e)}")
+                if attempt == max_retries - 1:
+                    return {
+                        "error": True,
+                        "message": f"Failed to fetch data for {symbol}: {str(e)}",
+                        "data": {}
+                    }
+                time.sleep(2 ** attempt)
     
     def get_market_overview(self) -> Dict[str, Any]:
         indices = {
@@ -134,29 +149,40 @@ class FinancialDataTool:
         market_data = {}
         
         for name, symbol in indices.items():
-            try:
-                ticker = yf.Ticker(symbol, session=session)
-                hist = ticker.history(period="5d")
-                
-                if not hist.empty:
-                    current = hist['Close'].iloc[-1]
-                    previous = hist['Close'].iloc[-2] if len(hist) > 1 else current
-                    change = current - previous
-                    change_pct = (change / previous * 100) if previous != 0 else 0
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    ticker = yf.Ticker(symbol)
+                    hist = ticker.history(period="5d")
                     
-                    market_data[name] = {
-                        "symbol": symbol,
-                        "current": float(current),
-                        "change": float(change),
-                        "change_percent": float(change_pct)
-                    }
-            except Exception as e:
-                logger.error(f"Error fetching {name} data: {str(e)}")
-                market_data[name] = {
-                    "error": True,
-                    "message": f"Failed to fetch data for {name}: {str(e)}",
-                    "data": {}
-                }
+                    if not hist.empty:
+                        current = hist['Close'].iloc[-1]
+                        previous = hist['Close'].iloc[-2] if len(hist) > 1 else current
+                        change = current - previous
+                        change_pct = (change / previous * 100) if previous != 0 else 0
+                        
+                        market_data[name] = {
+                            "symbol": symbol,
+                            "current": float(current),
+                            "change": float(change),
+                            "change_percent": float(change_pct)
+                        }
+                        break
+                    elif attempt == max_retries - 1:
+                        raise ValueError(f"Empty history for {symbol}")
+                    else:
+                        time.sleep(2 ** attempt)
+                        
+                except Exception as e:
+                    logger.error(f"Error fetching {name} data: {str(e)}")
+                    if attempt == max_retries - 1:
+                        market_data[name] = {
+                            "error": True,
+                            "message": f"Failed to fetch data for {name}: {str(e)}",
+                            "data": {}
+                        }
+                    else:
+                        time.sleep(2 ** attempt)
         
         return market_data
     
@@ -193,18 +219,12 @@ class FinancialDataTool:
     
     def search_stocks(self, query: str, limit: int = 10) -> List[Dict[str, str]]:
         try:
-            ticker = yf.Ticker(query.upper())
-            info = ticker.info
-            
-            if info and 'symbol' in info:
-                return [{
-                    "symbol": info.get('symbol', query.upper()),
-                    "name": info.get('longName', 'Unknown'),
-                    "sector": info.get('sector', 'Unknown'),
-                    "industry": info.get('industry', 'Unknown')
-                }]
-            else:
-                return []
+            return [{
+                "symbol": query.upper(),
+                "name": query.upper(),
+                "sector": "Unknown",
+                "industry": "Unknown"
+            }]
                 
         except Exception as e:
             logger.error(f"Error searching for stocks with query '{query}': {str(e)}")

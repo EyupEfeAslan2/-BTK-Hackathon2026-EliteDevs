@@ -106,7 +106,7 @@ class FinancialAnalysisOrchestrator:
                 crew_result["committee_decision"] = "REJECTED"
                 
             for vote in crew_result.get("agent_votes", []):
-                if vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
+                if isinstance(vote, dict) and vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
                     crew_result["committee_decision"] = "REJECTED"
                     break
         
@@ -240,21 +240,26 @@ class FinancialAnalysisOrchestrator:
         elif len(symbols) == 1 or len(recommendations) == 1:
             symbol = symbols[0] if symbols else list(recommendations.keys())[0]
             rec = recommendations.get(symbol, {})
+            rec = rec if isinstance(rec, dict) else {}
             
             agent_votes = self.apply_compliance_vote(
-                rec.get("agent_votes", []),
+                rec.get("agent_votes", []) if isinstance(rec, dict) else [],
                 compliance
             )
 
             final_results = {
-                "committee_decision": rec.get("committee_decision", "CONDITIONAL"),
-                "default_risk_level": rec.get("default_risk_level", "MEDIUM"),
+                "committee_decision": rec.get("committee_decision", "CONDITIONAL") if isinstance(rec, dict) else "CONDITIONAL",
+                "default_risk_level": rec.get("default_risk_level", "MEDIUM") if isinstance(rec, dict) else "MEDIUM",
                 "recommended_loan_terms": rec.get("recommended_loan_terms", {
                     "max_amount": "$0M",
                     "tenor": "0 months",
                     "covenants": ["Standard covenants apply"]
-                }),
-                "justification_summary": rec.get("justification_summary", "Decision based on automated review."),
+                }) if isinstance(rec, dict) else {
+                    "max_amount": "$0M",
+                    "tenor": "0 months",
+                    "covenants": ["Standard covenants apply"]
+                },
+                "justification_summary": rec.get("justification_summary", "Decision based on automated review.") if isinstance(rec, dict) else "Decision based on automated review.",
                 "raw_telemetry": self.extract_raw_telemetry([symbol], data, analysis),
                 "agent_votes": agent_votes
             }
@@ -295,7 +300,7 @@ class FinancialAnalysisOrchestrator:
 
         # --- CRITICAL VETO ---
         for vote in final_results.get("agent_votes", []):
-            if vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
+            if isinstance(vote, dict) and vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
                 final_results["committee_decision"] = "REJECTED"
                 break
 
@@ -496,25 +501,31 @@ class FinancialAnalysisOrchestrator:
         
         try:
             stock_data = self.data_agent.collect_stock_data([symbol], "3mo")
+            stock_data = stock_data if isinstance(stock_data, dict) else {}
+            
             news_data = self.data_agent.collect_news_sentiment([symbol])
+            news_data = news_data if isinstance(news_data, dict) else {}
             
             technical_analysis = self.analysis_agent.perform_technical_analysis([symbol], "3mo")
+            technical_analysis = technical_analysis if isinstance(technical_analysis, dict) else {}
             
             risk_metrics = self.risk_agent.calculate_risk_metrics([symbol], 
                                                                 stock_data.get("stocks", {}))
+            risk_metrics = risk_metrics if isinstance(risk_metrics, dict) else {}
             
             compliance_results = self.compliance_agent.execute_compliance_analysis([symbol])
+            compliance_results = compliance_results if isinstance(compliance_results, dict) else {}
             
             return {
                 "symbol": symbol,
                 "quick_analysis": {
-                    "current_price": stock_data.get("stocks", {}).get(symbol, {}).get("current_price"),
-                    "price_change_percent": stock_data.get("stocks", {}).get(symbol, {}).get("price_change_percent"),
-                    "technical_signal": technical_analysis.get("technical_analysis", {}).get(symbol, {}).get("trading_signals", {}).get("overall_signal"),
+                    "current_price": stock_data.get("stocks", {}).get(symbol, {}).get("current_price") if isinstance(stock_data.get("stocks"), dict) and isinstance(stock_data.get("stocks", {}).get(symbol), dict) else None,
+                    "price_change_percent": stock_data.get("stocks", {}).get(symbol, {}).get("price_change_percent") if isinstance(stock_data.get("stocks"), dict) and isinstance(stock_data.get("stocks", {}).get(symbol), dict) else None,
+                    "technical_signal": technical_analysis.get("technical_analysis", {}).get(symbol, {}).get("trading_signals", {}).get("overall_signal") if isinstance(technical_analysis.get("technical_analysis"), dict) and isinstance(technical_analysis.get("technical_analysis", {}).get(symbol), dict) else None,
                     "risk_level": self.risk_agent.classify_risk_level(
-                        risk_metrics.get("risk_metrics", {}).get(symbol, {}).get("risk_score", 50)
+                        risk_metrics.get("risk_metrics", {}).get(symbol, {}).get("risk_score", 50) if isinstance(risk_metrics.get("risk_metrics"), dict) and isinstance(risk_metrics.get("risk_metrics", {}).get(symbol), dict) else 50
                     ),
-                    "news_sentiment": news_data.get("market_sentiment", {}).get("symbol_sentiments", {}).get(symbol, {}).get("sentiment_label")
+                    "news_sentiment": news_data.get("market_sentiment", {}).get("symbol_sentiments", {}).get(symbol, {}).get("sentiment_label") if isinstance(news_data.get("market_sentiment"), dict) and isinstance(news_data.get("market_sentiment", {}).get("symbol_sentiments"), dict) and isinstance(news_data.get("market_sentiment", {}).get("symbol_sentiments", {}).get(symbol), dict) else None
                 },
                 "compliance_and_legal": {
                     "veto_flag": compliance_results.get("veto_flag", False),

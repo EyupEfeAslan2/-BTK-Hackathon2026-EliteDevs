@@ -13,6 +13,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+print("USING SIMPLIFIED DATA PIPELINE v2")
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
