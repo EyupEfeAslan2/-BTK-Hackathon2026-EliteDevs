@@ -59,15 +59,9 @@ def _fallback_memo(symbols: List[str], period: str, requested_amount: Optional[s
     now = datetime.now(timezone.utc).isoformat()
 
     return {
-        "committee_decision": "APPROVED",
-        "default_risk_level": "LOW",
-        "justification_summary": (
-            f"The AI credit committee recommends APPROVAL for {symbol}. The borrower demonstrates strong liquidity, "
-            "durable operating cash flow, resilient profitability, and conservative leverage relative to peer benchmarks. "
-            "Revenue quality, margin stability, market capitalization depth, and positive sentiment indicators support a "
-            "low default-risk classification. The requested exposure is well within modeled debt-service capacity, and "
-            "the proposed structure provides adequate covenant protection while preserving operational flexibility."
-        ),
+        "committee_decision": "MANUAL_REVIEW",
+        "default_risk_level": "UNKNOWN",
+        "justification_summary": "Escalated to MANUAL_REVIEW. System fallback triggered.",
         "recommended_loan_terms": {
             "max_amount": "$50M",
             "tenor": "5 Years",
@@ -200,7 +194,7 @@ def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -
     }
 
 
-@app.post("/api/v1/analyze", response_model=None)
+@app.post("/api/analyze", response_model=None)
 def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
     try:
         from core.orchestrator import get_orchestrator

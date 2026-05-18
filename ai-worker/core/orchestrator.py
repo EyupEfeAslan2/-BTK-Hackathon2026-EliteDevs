@@ -2,7 +2,7 @@ import logging
 import json
 import math
 import os
-import re  # <-- YZ markdown etiketlerini temizlemek için eklendi
+import re
 from crewai import Crew, Process
 from functools import lru_cache
 from typing import Dict, List, Any, Optional
@@ -45,7 +45,7 @@ class FinancialAnalysisOrchestrator:
         risk_task = self.risk_agent.create_risk_assessment_task({"symbols": symbols})
         risk_task.description = f"{risk_task.description}\n\n{raw_json_instruction}"
         if requested_amount:
-            risk_task.description += f"\n\nThe user is specifically requesting a loan of {requested_amount}. You MUST evaluate if their financial telemetry (liquidity, cash flow) can support this exact debt burden. If it is too high, you MUST REJECT or issue a CONDITIONAL decision on the request."
+            risk_task.description += f"\n\nThe user is specifically requesting a loan of {requested_amount}. You MUST evaluate if their financial telemetry (liquidity, cash flow) can support this exact debt burden. If it is too high, you MUST REJECT or severely CONDITIONAL the request."
         risk_task.context = [data_task, analysis_task, compliance_task]
         
         crew = Crew(
@@ -99,10 +99,21 @@ class FinancialAnalysisOrchestrator:
         # Also ensure compliance_and_legal is available at the root level for consistency
         compliance_results = self.compliance_agent.execute_compliance_analysis(symbols)
         
+        crew_result = self.parse_crew_result(result)
+        
+        if isinstance(crew_result, dict):
+            if compliance_results.get("veto_flag", False):
+                crew_result["committee_decision"] = "REJECTED"
+                
+            for vote in crew_result.get("agent_votes", []):
+                if vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
+                    crew_result["committee_decision"] = "REJECTED"
+                    break
+        
         return {
             "symbols": symbols,
             "analysis_period": analysis_period,
-            "crew_result": self.parse_crew_result(result),
+            "crew_result": crew_result,
             "compliance_and_legal": {
                 "veto_flag": compliance_results.get("veto_flag", False),
                 "legal_summary": compliance_results.get("legal_summary", "No data")
@@ -170,7 +181,7 @@ class FinancialAnalysisOrchestrator:
             "status": "success",
             "timestamp": datetime.now().isoformat()
         }
-
+        
         return final_results
     
     def generate_credit_committee_memo(self, 
@@ -417,8 +428,6 @@ class FinancialAnalysisOrchestrator:
                     return self.make_json_safe(json.loads(candidate))
                 except json.JSONDecodeError:
                     continue
-            
-            logger.error(f"JSON Parse Error. Temizlenemeyen Metin: {text[:100]}...")
             return {"raw": text}
 
         return self.make_json_safe(raw_result)

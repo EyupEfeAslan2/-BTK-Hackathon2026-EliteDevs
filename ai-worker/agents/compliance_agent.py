@@ -68,7 +68,7 @@ class ComplianceAgent:
                 
                 for item in news:
                     text = (item.get('title', '') + " " + item.get('summary', '')).lower()
-                    if any(keyword in text for keyword in ['lawsuit', 'breach', 'gdpr', 'kvkk', 'violation', 'fraud', 'investigation', 'sec']):
+                    if any(keyword in text for keyword in ['lawsuit', 'breach', 'gdpr', 'kvkk', 'violation', 'fraud', 'investigation', ' sec ', 'sec filing', 'sec probe']):
                         has_issue = True
                         summary = f"Potential legal risks detected in recent news for {symbol}. Review regulatory and news sources for details."
                         break
