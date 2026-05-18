@@ -5,17 +5,20 @@ import TerminalLoading from './components/TerminalLoading';
 import Dashboard from './components/Dashboard';
 import BatchResultsTable from './components/BatchResultsTable';
 import CompanyCombobox, { TOP_50_COMPANIES } from './components/CompanyCombobox';
-import ThemeToggle from './components/ThemeToggle';import { useThemeStore } from './store/themeStore'; import RateLimitTest from './components/test/RateLimitTest'
-
+import ThemeToggle from './components/ThemeToggle';
+import { useThemeStore } from './store/themeStore';
+import RateLimitTest from './components/test/RateLimitTest';
+import { mapBatchAnalyzeResponse } from './utils/mapBatchAnalyzeResponse';
 
 import './App.css';
 
 function App() {
   const [symbolInput, setSymbolInput] = useState('');
   const [analyzedTicker, setAnalyzedTicker] = useState('');
-  const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'error'
+  const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'batch-results', 'batch-detail', 'error'
   const [data, setData] = useState(null);
   const [batchResults, setBatchResults] = useState([]);
+  const [selectedBatchItem, setSelectedBatchItem] = useState(null); // ← EKLE: Seçili batch item
   const [batchMode, setBatchMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [historyItems, setHistoryItems] = useState([]);
@@ -67,6 +70,7 @@ function App() {
     setAppState('analyzing');
     setData(null);
     setBatchResults([]);
+    setSelectedBatchItem(null); // ← EKLE: Reset selected item
     setErrorMsg('');
     setApiDone(false);
     setTerminalDone(false);
@@ -84,14 +88,11 @@ function App() {
 
     try {
       if (isBatchRequest) {
-        const responses = await Promise.all(batchSymbols.map(async (ticker) => {
-          const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
-            symbols: [ticker],
-            period: "1mo"
-          });
-          return { ticker, data: response.data };
-        }));
-        setBatchResults(responses);
+        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
+          symbols: batchSymbols,
+          period: '1mo',
+        });
+        setBatchResults(mapBatchAnalyzeResponse(response.data, batchSymbols));
       } else {
         const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
           symbols: [symbol],
@@ -121,6 +122,19 @@ function App() {
     setTerminalDone(true);
   };
 
+  // ← EKLE: Batch item seçimi handler'ı
+  const handleSelectBatchResult = (item) => {
+    if (!item?.data) return;
+    setSelectedBatchItem(item);
+    setAppState('batch-detail');
+  };
+
+  // ← EKLE: Batch table'a geri dönüş handler'ı
+  const handleBackToBatchTable = () => {
+    setSelectedBatchItem(null);
+    setAppState('batch-results');
+  };
+
   const toggleFaq = (index) => {
     setFaqOpen(prev => {
       const newState = [...prev];
@@ -132,18 +146,23 @@ function App() {
   // When both terminal animation and API are done, transition to results
   React.useEffect(() => {
     if (appState === 'analyzing' && apiDone && terminalDone) {
-      setAppState('results');
+      // Batch request'i batch-results'a, normal request'i results'a yönlendir
+      if (batchResults.length > 0) {
+        setAppState('batch-results');
+      } else {
+        setAppState('results');
+      }
     }
     if (appState === 'error' && terminalDone) {
       setAppState('results');
     }
-  }, [appState, apiDone, terminalDone]);
+  }, [appState, apiDone, terminalDone, batchResults.length]);
 
   return (
     <div className="min-h-screen bg-[#050508] dark:bg-[#050508] bg-white dark:text-slate-300 text-slate-900 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 dark:selection:bg-emerald-500/30 dark:selection:text-emerald-200 transition-colors duration-300">
 
       {/* Top Navigation / Search Bar */}
-      <nav className="sticky top-0 z-50 border-b border-emerald-500/20 dark:border-emerald-500/20 bg-white dark:bg-[#0a0a0f]/80 dark:backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10 dark:shadow-emerald-900/10 transition-colors duration-300">
+      <nav className="sticky top-0 z-[110] border-b border-emerald-500/20 dark:border-emerald-500/20 bg-white dark:bg-[#0a0a0f]/80 dark:backdrop-blur-md px-6 py-4 shadow-lg shadow-emerald-900/10 dark:shadow-emerald-900/10 transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
 
           {/* Logo / Brand */}
@@ -152,9 +171,10 @@ function App() {
             onClick={() => {
               setAppState('idle');
               setData(null);
-              if (typeof setBatchResults === 'function') setBatchResults([]);
+              setBatchResults([]);
+              setSelectedBatchItem(null); // ← EKLE: Reset selected item
               setSymbolInput('');
-              if (typeof setErrorMsg === 'function') setErrorMsg('');
+              setErrorMsg('');
             }}
           >
             <div className="w-10 h-10 rounded border border-emerald-500/40 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center cyber-glow group-hover:border-emerald-400 transition-colors">
@@ -300,23 +320,33 @@ function App() {
             </div>
           )}
 
-          {appState === 'results' && batchResults.length > 0 && (
+          {/* ← EKLE: Batch Results Table View (table gösterimi) */}
+          {appState === 'batch-results' && batchResults.length > 0 && (
             <BatchResultsTable
               results={batchResults}
-              onRowClick={(item) => {
-                setData(item.data);
-                setAnalyzedTicker(item.ticker);
-                setBatchResults([]);
-              }}
+              onSelectResult={handleSelectBatchResult}
+              onBackToTable={handleBackToBatchTable}
+              selectedItem={null}
             />
           )}
 
+          {/* ← EKLE: Batch Detail View (detail gösterimi) */}
+          {appState === 'batch-detail' && selectedBatchItem && (
+            <BatchResultsTable
+              results={batchResults}
+              onSelectResult={handleSelectBatchResult}
+              onBackToTable={handleBackToBatchTable}
+              selectedItem={selectedBatchItem}
+            />
+          )}
+
+          {/* Single result view */}
           {appState === 'results' && batchResults.length === 0 && (data || errorMsg) && (
             <Dashboard data={data} error={errorMsg} ticker={analyzedTicker} onSimulationResult={(newData) => setData(newData)} />
           )}
         </div>
       </main>
-            <footer className="border-t border-emerald-500/20 bg-white dark:bg-[#050508] py-12 px-6 transition-colors duration-300">
+      <footer className="border-t border-emerald-500/20 bg-white dark:bg-[#050508] py-12 px-6 transition-colors duration-300">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
           
           {/* 1. Sütun: Marka ve Tanıtım */}
