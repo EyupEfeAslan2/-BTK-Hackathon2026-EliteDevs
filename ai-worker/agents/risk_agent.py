@@ -92,8 +92,8 @@ class RiskAgent:
             }
             
         except Exception as e:
-            logger.error(f"Error calculating risk metrics: {str(e)}")
-            return {"error": str(e), "status": "failed"}
+            logger.error(f"Error in risk assessment: {str(e)}")
+            return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def assess_portfolio_risk(self, symbols: List[str], risk_metrics: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -124,8 +124,8 @@ class RiskAgent:
             }
             
         except Exception as e:
-            logger.error(f"Error assessing portfolio risk: {str(e)}")
-            return {"error": str(e), "status": "failed"}
+            logger.error(f"Error calculating portfolio risk: {str(e)}")
+            return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def generate_credit_decisions(self, 
                                           analysis_results: Dict[str, Any], 
@@ -148,8 +148,14 @@ class RiskAgent:
                 
                 if "error" in tech_data or "error" in fund_data or "error" in risk_data:
                     recommendations[symbol] = {
-                        "recommendation": "MANUAL_REVIEW",
-                        "reason": "Incomplete analysis data"
+                        "committee_decision": "MANUAL_REVIEW",
+                        "justification_summary": "Incomplete analysis data for this entity",
+                        "default_risk_level": "UNKNOWN",
+                        "recommended_loan_terms": {
+                            "max_amount": "$0M",
+                            "tenor": "0 months",
+                            "covenants": ["Requires manual underwriting"]
+                        }
                     }
                     continue
                 
@@ -225,7 +231,7 @@ class RiskAgent:
             
         except Exception as e:
             logger.error(f"Error generating recommendations: {str(e)}")
-            return {"error": str(e), "status": "failed"}
+            return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def execute_risk_assessment(self, analysis_results: Dict[str, Any], requested_amount: Optional[str] = None) -> Dict[str, Any]:
         logger.info("Starting comprehensive risk assessment")

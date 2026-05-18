@@ -2,8 +2,17 @@ import logging
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import requests
 from typing import Dict, List, Any
 from core.config import settings
+
+# Setup custom session for yfinance to prevent 401 Unauthorized errors
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+})
+# Note: In newer versions of yfinance, we can't globally set_session easily without passing it to Ticker,
+# but we will try to pass it to Ticker directly in the methods to be safe.
 
 def fetch_financial_data(ticker):
     if not ticker.endswith('.IS') and is_bist_stock(ticker): 
@@ -33,10 +42,15 @@ class FinancialDataTool:
         def convert_value(obj):
             if obj is None or pd.isna(obj):
                 return None
+            if isinstance(obj, float) and (np.isinf(obj) or np.isnan(obj)):
+                return None
             elif isinstance(obj, (pd.Timestamp, pd.Timedelta)):
                 return str(obj)
             elif isinstance(obj, (np.integer, np.floating)):
-                return obj.item()
+                val = obj.item()
+                if isinstance(val, float) and (np.isinf(val) or np.isnan(val)):
+                    return None
+                return val
             elif hasattr(obj, 'item') and callable(getattr(obj, 'item')):
                 try:
                     return obj.item()
@@ -69,7 +83,7 @@ class FinancialDataTool:
                       symbol: str, 
                       period: str = "1y") -> Dict[str, Any]:
         try:
-            stock = yf.Ticker(symbol)
+            stock = yf.Ticker(symbol, session=session)
             
             hist = stock.history(period=period)
             info = stock.info
@@ -102,7 +116,11 @@ class FinancialDataTool:
             
         except Exception as e:
             logger.error(f"Error fetching data for {symbol}: {str(e)}")
-            return {"error": f"Failed to fetch data for {symbol}: {str(e)}"}
+            return {
+                "error": True,
+                "message": f"Failed to fetch data for {symbol}: {str(e)}",
+                "data": {}
+            }
     
     def get_market_overview(self) -> Dict[str, Any]:
         indices = {
@@ -117,7 +135,7 @@ class FinancialDataTool:
         
         for name, symbol in indices.items():
             try:
-                ticker = yf.Ticker(symbol)
+                ticker = yf.Ticker(symbol, session=session)
                 hist = ticker.history(period="5d")
                 
                 if not hist.empty:
@@ -134,7 +152,11 @@ class FinancialDataTool:
                     }
             except Exception as e:
                 logger.error(f"Error fetching {name} data: {str(e)}")
-                market_data[name] = {"error": str(e)}
+                market_data[name] = {
+                    "error": True,
+                    "message": f"Failed to fetch data for {name}: {str(e)}",
+                    "data": {}
+                }
         
         return market_data
     
@@ -158,7 +180,7 @@ class FinancialDataTool:
         for sector, etf in sector_etfs.items():
             try:
                 data = self.get_stock_data(etf, "1mo")
-                if "error" not in data:
+                if not data.get("error"):
                     sector_data[sector] = {
                         "etf_symbol": etf,
                         "current_price": data["current_price"],

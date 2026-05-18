@@ -88,13 +88,13 @@ function App() {
 
     try {
       if (isBatchRequest) {
-        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
+        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/analyze', {
           symbols: batchSymbols,
           period: '1mo',
         });
         setBatchResults(mapBatchAnalyzeResponse(response.data, batchSymbols));
       } else {
-        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/v1/analyze', {
+        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/analyze', {
           symbols: [symbol],
           period: "1mo"
         });

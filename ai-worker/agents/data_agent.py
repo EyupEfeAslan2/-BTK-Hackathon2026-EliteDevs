@@ -56,7 +56,7 @@ class DataAgent:
             
         except Exception as e:
             logger.error(f"Error collecting stock data: {str(e)}")
-            return {"error": str(e), "status": "failed"}
+            return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def collect_market_data(self) -> Dict[str, Any]:
         try:
@@ -71,7 +71,7 @@ class DataAgent:
             
         except Exception as e:
             logger.error(f"Error collecting market data: {str(e)}")
-            return {"error": str(e), "status": "failed"}
+            return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def collect_news_sentiment(self, symbols: List[str]) -> Dict[str, Any]:
         try:
@@ -92,7 +92,7 @@ class DataAgent:
             
         except Exception as e:
             logger.error(f"Error collecting news sentiment: {str(e)}")
-            return {"error": str(e), "status": "failed"}
+            return {"error": True, "message": str(e), "data": {}, "status": "failed"}
     
     def execute_data_collection(self, symbols: List[str], period: str = "1y") -> Dict[str, Any]:
         logger.info(f"Starting data collection for symbols: {symbols}")

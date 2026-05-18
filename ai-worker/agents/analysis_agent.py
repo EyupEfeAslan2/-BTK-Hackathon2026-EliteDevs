@@ -130,8 +130,8 @@ class AnalysisAgent:
             positive_indices = 0
             total_indices = 0
             
-            for index_data in market_indices:
-                if "error" not in index_data:
+            for index_data in market_indices.values():
+                if isinstance(index_data, dict) and not index_data.get("error"):
                     total_indices += 1
                     if index_data.get("change_percent", 0) > 0:
                         positive_indices += 1
@@ -145,7 +145,7 @@ class AnalysisAgent:
             
             sector_trends = {}
             for sector, data in sector_performance.items():
-                change_pct = data.get("price_change_percent", 0)
+                change_pct = data.get("price_change_percent", 0) if isinstance(data, dict) and not data.get("error") else 0
                 if change_pct > 2:
                     sector_trends[sector] = "strong_positive"
                 elif change_pct > 0:

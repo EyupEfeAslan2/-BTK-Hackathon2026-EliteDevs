@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -195,15 +197,33 @@ def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -
 
 
 @app.post("/api/analyze", response_model=None)
-def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
+async def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
     try:
         from core.orchestrator import get_orchestrator
-
-        result = get_orchestrator().analyze_stocks(
-            symbols=request.symbols,
-            analysis_period=request.period,
-            use_crew=request.use_crew,
-            requested_amount=request.requested_amount,
+        
+        loop = asyncio.get_running_loop()
+        
+        def run_sync():
+            return get_orchestrator().analyze_stocks(
+                symbols=request.symbols,
+                analysis_period=request.period,
+                use_crew=request.use_crew,
+                requested_amount=request.requested_amount,
+            )
+            
+        with ThreadPoolExecutor() as pool:
+            result = await asyncio.wait_for(
+                loop.run_in_executor(pool, run_sync),
+                timeout=50.0  # Safe margin below Render's 60s timeout
+            )
+            
+    except asyncio.TimeoutError:
+        logger.warning(f"Analysis timed out for {request.symbols}. Returning fallback.")
+        return _fallback_memo(
+            request.symbols,
+            request.period,
+            request.requested_amount,
+            "Analysis timed out (Render 60s limit). Escalating to manual review."
         )
     except ValueError as exc:
         logger.warning("Analysis setup failed: %s", exc)

@@ -129,9 +129,11 @@ class FinancialAnalysisOrchestrator:
         
         if "error" in collected_data:
             return {
-                "error": f"Data collection failed: {collected_data['error']}",
+                "error": True,
+                "message": f"Data collection failed: {collected_data.get('message', collected_data.get('error'))}",
                 "status": "failed",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "data": {}
             }
         
         logger.info("Step 2: Performing financial analysis...")
@@ -139,9 +141,11 @@ class FinancialAnalysisOrchestrator:
         
         if "error" in analysis_results:
             return {
-                "error": f"Analysis failed: {analysis_results['error']}",
+                "error": True,
+                "message": f"Analysis failed: {analysis_results.get('message', analysis_results.get('error'))}",
                 "status": "failed",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "data": {}
             }
         
         logger.info("Step 3: Conducting risk assessment...")
@@ -149,9 +153,11 @@ class FinancialAnalysisOrchestrator:
         
         if "error" in risk_results:
             return {
-                "error": f"Risk assessment failed: {risk_results['error']}",
+                "error": True,
+                "message": f"Risk assessment failed: {risk_results.get('message', risk_results.get('error'))}",
                 "status": "failed",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "data": {}
             }
             
         logger.info("Step 4: Conducting compliance and legal analysis...")
@@ -192,7 +198,11 @@ class FinancialAnalysisOrchestrator:
                                   compliance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         
         # If no risk recommendations are available
-        recommendations = risk.get("recommendations", {}).get("individual_decisions", {})
+        risk = risk if isinstance(risk, dict) else {}
+        recs_obj = risk.get("recommendations", {})
+        recs_obj = recs_obj if isinstance(recs_obj, dict) else {}
+        recommendations = recs_obj.get("individual_decisions", {})
+        recommendations = recommendations if isinstance(recommendations, dict) else {}
         
         final_results = {}
         
@@ -251,7 +261,8 @@ class FinancialAnalysisOrchestrator:
         
         # If multiple symbols are requested, aggregate them into a portfolio memo
         else:
-            overall_resolution = risk.get("recommendations", {}).get("overall_resolution", {})
+            overall_resolution = recs_obj.get("overall_resolution", {})
+            overall_resolution = overall_resolution if isinstance(overall_resolution, dict) else {}
             
             final_results = {
                 "committee_decision": "CONDITIONAL",
@@ -305,8 +316,19 @@ class FinancialAnalysisOrchestrator:
             data: Dict[str, Any],
             analysis: Dict[str, Any]) -> Dict[str, Any]:
 
-        stocks = data.get("stock_data", {}).get("stocks", {})
-        fundamentals = analysis.get("fundamental_analysis", {}).get("fundamental_analysis", {})
+        data = data if isinstance(data, dict) else {}
+        analysis = analysis if isinstance(analysis, dict) else {}
+        
+        stock_data = data.get("stock_data", {})
+        stock_data = stock_data if isinstance(stock_data, dict) else {}
+        stocks = stock_data.get("stocks", {})
+        stocks = stocks if isinstance(stocks, dict) else {}
+        
+        fund_data = analysis.get("fundamental_analysis", {})
+        fund_data = fund_data if isinstance(fund_data, dict) else {}
+        fundamentals = fund_data.get("fundamental_analysis", {})
+        fundamentals = fundamentals if isinstance(fundamentals, dict) else {}
+        
         telemetry = {}
 
         for symbol in symbols:
