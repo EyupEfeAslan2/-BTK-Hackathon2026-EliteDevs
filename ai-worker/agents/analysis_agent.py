@@ -60,16 +60,36 @@ class AnalysisAgent:
     
     def perform_fundamental_analysis(self, stock_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
+            if not isinstance(stock_data, dict):
+                print(f"CRITICAL ERROR: stock_data is not dict! Type: {type(stock_data)}")
+                print(f"stock_data value: {repr(stock_data)[:500]}")
+                logger.error(f"stock_data is not a dict: type is {type(stock_data)}")
+                stock_data = {}
+
             fundamental_results = {}
             
             for symbol, data in stock_data.items():
-                if not isinstance(data, dict) or data.get("error"):
-                    fundamental_results[symbol] = {"error": data.get("error", True) if isinstance(data, dict) else True}
+                if not isinstance(data, dict):
+                    print(f"CRITICAL ERROR in fundamental_analysis for {symbol}: data is not dict! Type: {type(data)}")
+                    print(f"data value: {repr(data)[:500]}")
+                    fundamental_results[symbol] = {"error": True}
+                    continue
+                    
+                print(f"fundamental_analysis data type: {type(data)}")
+                print(f"fundamental_analysis data value: {repr(data)[:300]}")
+                if data.get("error"):
+                    fundamental_results[symbol] = {"error": True}
                     continue
                 
                 logger.info(f"Performing fundamental analysis for {symbol}")
                 
+                print(f"fundamental_analysis data type before company_info get: {type(data)}")
                 info = data.get("company_info", {})
+                if not isinstance(info, dict):
+                    print(f"CRITICAL ERROR: info is not dict! Type: {type(info)}")
+                    info = {}
+                
+                print(f"fundamental_analysis info type before gets: {type(info)}")
                 
                 analysis = {
                     "valuation_metrics": {
@@ -118,16 +138,26 @@ class AnalysisAgent:
             }
             
         except Exception as e:
+            import traceback
+            print("CRITICAL EXCEPTION in perform_fundamental_analysis:")
+            traceback.print_exc()
             logger.error(f"Error in fundamental analysis: {str(e)}")
             return {"error": str(e), "status": "failed"}
     
     def analyze_market_trends(self, market_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
             if not isinstance(market_data, dict):
+                print(f"CRITICAL ERROR: market_data is not dict! Type: {type(market_data)}")
+                print(f"market_data value: {repr(market_data)[:500]}")
                 logger.warning(f"market_data is not a dict: type is {type(market_data)}, content: {str(market_data)[:100]}")
                 market_data = {}
+            
+            print(f"analyze_market_trends market_data type: {type(market_data)}")
+            print(f"analyze_market_trends market_data value: {repr(market_data)[:300]}")
             market_indices = market_data.get("market_indices", {})
             if not isinstance(market_indices, dict): market_indices = {}
+            
+            print(f"analyze_market_trends market_data type before sector_performance: {type(market_data)}")
             sector_performance = market_data.get("sector_performance", {})
             if not isinstance(sector_performance, dict): sector_performance = {}
             
@@ -137,7 +167,10 @@ class AnalysisAgent:
             positive_ratio = 0.5
             
             for index_data in market_indices.values():
-                if isinstance(index_data, dict) and not index_data.get("error"):
+                if isinstance(index_data, dict):
+                    print(f"index_data type: {type(index_data)}")
+                    print(f"index_data value: {repr(index_data)[:300]}")
+                    if not index_data.get("error"):
                     total_indices += 1
                     if index_data.get("change_percent", 0) > 0:
                         positive_indices += 1
@@ -171,6 +204,9 @@ class AnalysisAgent:
             }
             
         except Exception as e:
+            import traceback
+            print("CRITICAL EXCEPTION in analyze_market_trends:")
+            traceback.print_exc()
             logger.error(f"Error in market trend analysis: {str(e)}")
             return {"error": str(e), "status": "failed"}
     
@@ -256,10 +292,17 @@ class AnalysisAgent:
             return "Weak fundamental profile with concerning metrics"
     
     def get_leading_sectors(self, sector_performance: Dict[str, Any]) -> List[str]:
+        if not isinstance(sector_performance, dict):
+            print(f"CRITICAL ERROR: get_leading_sectors sector_performance not dict! Type: {type(sector_performance)}")
+            print(f"Value: {repr(sector_performance)[:500]}")
+            return []
+            
         sectors = []
         for sector, data in sector_performance.items():
             if not isinstance(data, dict):
                 continue
+            print(f"get_leading_sectors data type: {type(data)}")
+            print(f"get_leading_sectors data value: {repr(data)[:300]}")
             change_pct = data.get("price_change_percent", 0)
             sectors.append((sector, change_pct))
         
@@ -267,10 +310,17 @@ class AnalysisAgent:
         return [sector for sector, _ in sectors[:3]]
     
     def get_lagging_sectors(self, sector_performance: Dict[str, Any]) -> List[str]:
+        if not isinstance(sector_performance, dict):
+            print(f"CRITICAL ERROR: get_lagging_sectors sector_performance not dict! Type: {type(sector_performance)}")
+            print(f"Value: {repr(sector_performance)[:500]}")
+            return []
+            
         sectors = []
         for sector, data in sector_performance.items():
             if not isinstance(data, dict):
                 continue
+            print(f"get_lagging_sectors data type: {type(data)}")
+            print(f"get_lagging_sectors data value: {repr(data)[:300]}")
             change_pct = data.get("price_change_percent", 0)
             sectors.append((sector, change_pct))
         
