@@ -13,6 +13,7 @@
 <br/>
 
 [![Live Demo](https://img.shields.io/badge/%F0%9F%9A%80_Live_Demo-Online-10B981?style=for-the-badge)](https://btk-hackathon2026-elite-devs.vercel.app/)
+[![YouTube](https://img.shields.io/badge/%F0%9F%8E%A5_Pitch_Video-YouTube-FF0000?style=for-the-badge)](https://www.youtube.com/watch?v=Dl0J9_KbNpM)
 [![License: MIT](https://img.shields.io/badge/License-MIT-E8B931?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![BTK Hackathon](https://img.shields.io/badge/BTK_Hackathon-2026-FF6B6B?style=for-the-badge)](https://www.btk.gov.tr/)
 
