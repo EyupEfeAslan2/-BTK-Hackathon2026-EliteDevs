@@ -10,6 +10,8 @@ import {
   sanitizeReportCopy,
 } from '../utils/creditMemoExport';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://btk-hackathon2026-elitedevs.onrender.com").replace(/\/$/, "");
+
 const Dashboard = ({ data, error, ticker, onSimulationResult, onBackToBatch, hasBatchHistory }) => {
   const { isDark } = useThemeStore();
   const [pdfExporting, setPdfExporting] = useState(false);
@@ -22,7 +24,8 @@ const Dashboard = ({ data, error, ticker, onSimulationResult, onBackToBatch, has
     if (!ticker) return;
     setSimulating(true);
     try {
-      const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/analyze', {
+      // What-If simulations bypass gateway cache because requested_amount changes the decision.
+      const response = await axios.post(`${API_BASE_URL}/api/analyze`, {
         symbols: [ticker],
         period: '1mo',
         requested_amount: String(customAmount),
@@ -90,16 +93,20 @@ const Dashboard = ({ data, error, ticker, onSimulationResult, onBackToBatch, has
     );
   }
 
-  const committeeDecision = data?.committee_decision || 'N/A';
+  const rawCommitteeDecision = data?.committee_decision || 'N/A';
+  // MANUAL_REVIEW is rendered as an escalation so business users understand the next action.
+  const committeeDecision = rawCommitteeDecision === 'MANUAL_REVIEW' ? 'COMPLIANCE ESCALATION' : rawCommitteeDecision;
   const defaultRiskLevel = data?.default_risk_level || 'N/A';
   const recommendedTerms = data?.recommended_loan_terms || {};
   const covenants = data?.recommended_loan_terms?.covenants || [];
-  const justificationSummary = sanitizeReportCopy(data?.justification_summary) || 'N/A';
+  const justificationSummary = sanitizeReportCopy(data?.reasoning || data?.justification_summary) || 'N/A';
+  const confidence = data?.confidence ? `${data.confidence}%` : 'N/A';
   const agentVotes = Array.isArray(data?.agent_votes) ? data.agent_votes : [];
   const rawTelemetry = data?.raw_telemetry && typeof data.raw_telemetry === 'object' ? data.raw_telemetry : null;
   const hasRawTelemetry = rawTelemetry && Object.keys(rawTelemetry).length > 0;
 
   const getVoteBadgeClass = (vote) => {
+    // Normalize common vote variants from deterministic and LLM-generated paths.
     const normalizedVote = String(vote || '').toUpperCase();
     if (normalizedVote === 'APPROVE' || normalizedVote === 'APPROVED') {
       return 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30';
@@ -107,11 +114,12 @@ const Dashboard = ({ data, error, ticker, onSimulationResult, onBackToBatch, has
     if (normalizedVote === 'REJECT' || normalizedVote === 'REJECTED') {
       return 'bg-red-100 text-red-800 border-red-300 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30';
     }
-    return 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-500/15 dark:text-yellow-200 dark:border-yellow-500/30';
+    return 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/15 dark:text-amber-200 dark:border-amber-500/30';
   };
 
-  const isApproved = committeeDecision === 'APPROVED';
-  const isRejected = committeeDecision === 'REJECTED';
+  const isApproved = rawCommitteeDecision === 'APPROVED';
+  const isRejected = rawCommitteeDecision === 'REJECTED';
+  // One visual signal drives the hero decision card across approval states.
   const signalClass = isApproved
     ? 'border-emerald-500/40 bg-emerald-950/20 cyber-glow text-emerald-400'
     : isRejected
@@ -219,9 +227,14 @@ return (
           {/* AI Consensus Justification */}
           <div className="mb-8 p-6 rounded-xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50 dark:bg-[#0b0f19] shadow-lg relative overflow-hidden" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
             <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${isRejected ? 'from-red-500 to-orange-500' : 'from-emerald-400 to-cyan-500'}`}></div>
-            <h3 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-400 mb-2 uppercase tracking-widest flex items-center gap-2">
-              AI CONSENSUS JUSTIFICATION
-            </h3>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm md:text-base font-mono text-emerald-700 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                GEMINI AI REASONING
+              </h3>
+              <span className="px-2 py-1 text-xs rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono border border-slate-300 dark:border-slate-700">
+                Confidence: {confidence}
+              </span>
+            </div>
             <p className="text-emerald-900 dark:text-slate-300 font-mono text-sm md:text-base leading-relaxed pl-2">
               {justificationSummary}
             </p>

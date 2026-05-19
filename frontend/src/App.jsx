@@ -12,21 +12,23 @@ import { mapBatchAnalyzeResponse } from './utils/mapBatchAnalyzeResponse';
 
 import './App.css';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://btk-hackathon2026-elitedevs.onrender.com").replace(/\/$/, "");
+
 function App() {
   const [symbolInput, setSymbolInput] = useState('');
   const [analyzedTicker, setAnalyzedTicker] = useState('');
   const [appState, setAppState] = useState('idle'); // 'idle', 'analyzing', 'results', 'batch-results', 'batch-detail', 'error'
   const [data, setData] = useState(null);
   const [batchResults, setBatchResults] = useState([]);
-  const [selectedBatchItem, setSelectedBatchItem] = useState(null); // ← EKLE: Seçili batch item
+  const [selectedBatchItem, setSelectedBatchItem] = useState(null); // Detail row shown after selecting a batch result.
   const [batchMode, setBatchMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [historyItems, setHistoryItems] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [faqOpen, setFaqOpen] = useState([false, false, false]); // FAQ items open state
+  const [faqOpen, setFaqOpen] = useState([false, false, false]); // One boolean per FAQ accordion item.
   const { isDark } = useThemeStore();
 
-  // We track two sub-states during 'analyzing' to wait for BOTH API and Terminal Animation to finish
+  // Wait for both the API response and terminal animation before revealing results.
   const [apiDone, setApiDone] = useState(false);
   const [terminalDone, setTerminalDone] = useState(false);
 
@@ -42,7 +44,7 @@ function App() {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await axios.get('https://btk-hackathon2026-elitedevs.onrender.com/history');
+        const response = await axios.get(`${API_BASE_URL}/history`);
         setHistoryItems(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
         console.error('History fetch failed:', err);
@@ -55,6 +57,7 @@ function App() {
   const normalizeCompanyName = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   const resolveTicker = (value) => {
+    // Accept either company names from the combobox or raw ticker symbols.
     const input = value.trim();
     const matched = TOP_50_COMPANIES.find((company) => (
       company.ticker.toLowerCase() === input.toLowerCase() ||
@@ -70,7 +73,7 @@ function App() {
     setAppState('analyzing');
     setData(null);
     setBatchResults([]);
-    setSelectedBatchItem(null); // ← EKLE: Reset selected item
+    setSelectedBatchItem(null); // Reset stale detail view when a new analysis starts.
     setErrorMsg('');
     setApiDone(false);
     setTerminalDone(false);
@@ -79,6 +82,7 @@ function App() {
       .split(',')
       .map((symbol) => resolveTicker(symbol))
       .filter(Boolean);
+    // Batch mode sends all tickers in one request; single mode resolves only the entered entity.
     const isBatchRequest = batchMode && batchSymbols.length > 0;
     const symbol = isBatchRequest ? batchSymbols[0] : resolveTicker(rawSymbol);
 
@@ -88,13 +92,14 @@ function App() {
 
     try {
       if (isBatchRequest) {
-        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/analyze', {
+        const response = await axios.post(`${API_BASE_URL}/api/analyze`, {
           symbols: batchSymbols,
           period: '1mo',
         });
+        // The backend may return a shared memo or per-symbol slices; normalize for the table.
         setBatchResults(mapBatchAnalyzeResponse(response.data, batchSymbols));
       } else {
-        const response = await axios.post('https://btk-hackathon2026-elitedevs.onrender.com/api/analyze', {
+        const response = await axios.post(`${API_BASE_URL}/api/analyze`, {
           symbols: [symbol],
           period: "1mo"
         });
@@ -114,6 +119,7 @@ function App() {
   };
 
   const handleHistoryAnalyze = async (ticker) => {
+    // History cache keys are stored as "SYMBOLS|period"; replay only the entity part.
     const symbol = String(ticker || '').split('|')[0].split(',')[0].trim();
     await runAnalyze(symbol);
   };
@@ -122,14 +128,12 @@ function App() {
     setTerminalDone(true);
   };
 
-  // ← EKLE: Batch item seçimi handler'ı
   const handleSelectBatchResult = (item) => {
     if (!item?.data) return;
     setSelectedBatchItem(item);
     setAppState('batch-detail');
   };
 
-  // ← EKLE: Batch table'a geri dönüş handler'ı
   const handleBackToBatchTable = () => {
     setSelectedBatchItem(null);
     setAppState('batch-results');
@@ -143,10 +147,10 @@ function App() {
     });
   };
 
-  // When both terminal animation and API are done, transition to results
+  // When both terminal animation and API are done, transition to the correct results view.
   React.useEffect(() => {
     if (appState === 'analyzing' && apiDone && terminalDone) {
-      // Batch request'i batch-results'a, normal request'i results'a yönlendir
+      // Batch requests land on the table first; single requests go straight to the dashboard.
       if (batchResults.length > 0) {
         setAppState('batch-results');
       } else {
@@ -172,7 +176,7 @@ function App() {
               setAppState('idle');
               setData(null);
               setBatchResults([]);
-              setSelectedBatchItem(null); // ← EKLE: Reset selected item
+              setSelectedBatchItem(null); // Reset selected batch row when returning home.
               setSymbolInput('');
               setErrorMsg('');
             }}

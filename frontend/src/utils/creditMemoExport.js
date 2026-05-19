@@ -9,6 +9,7 @@ let colorProbeCtx = null;
 
 function getColorProbeCtx() {
   if (!colorProbeCtx) {
+    // Reuse one tiny canvas so repeated color normalization is cheap.
     const c = document.createElement('canvas');
     c.width = 1;
     c.height = 1;
@@ -20,6 +21,7 @@ function getColorProbeCtx() {
 function resolveColorThroughCanvas(cssColor) {
   if (!cssColor || cssColor === 'none' || cssColor === 'transparent') return cssColor;
   try {
+    // html2canvas cannot parse newer CSS color spaces; canvas may resolve them to rgb/hex.
     const ctx = getColorProbeCtx();
     ctx.fillStyle = '#000';
     ctx.fillStyle = cssColor;
@@ -30,6 +32,7 @@ function resolveColorThroughCanvas(cssColor) {
   }
 
   try {
+    // Fallback through computed style for browser-supported colors canvas leaves unchanged.
     const probe = document.createElement('span');
     probe.setAttribute(
       'style',
@@ -50,6 +53,7 @@ function prepareClonedDomForCanvas(origRoot, clonedDoc) {
   const cloneRoot = clonedDoc.getElementById(origRoot.id);
   if (!cloneRoot) return;
 
+  // Inline computed styles in the cloned DOM so exported PDFs do not depend on Tailwind runtime CSS.
   clonedDoc.querySelectorAll('link[rel="stylesheet"], link[as="style"]').forEach((link) => {
     link.remove();
   });
@@ -70,6 +74,7 @@ function prepareClonedDomForCanvas(origRoot, clonedDoc) {
         const value = cs.getPropertyValue(name);
 
         if (MODERN_COLOR_SYNTAX.test(value)) {
+          // Convert only unsupported modern color values and leave normal CSS untouched.
           const cleaned = resolveColorThroughCanvas(value);
           if (cleaned && !MODERN_COLOR_SYNTAX.test(cleaned)) {
             newStyle[name] = cleaned;
@@ -81,6 +86,7 @@ function prepareClonedDomForCanvas(origRoot, clonedDoc) {
 
       const cssText = Object.entries(newStyle)
         .filter(([key, val]) => {
+          // Backdrop filters and unresolved modern colors are common html2canvas failure points.
           if (key.includes('backdrop-filter')) return false;
           if (MODERN_COLOR_SYNTAX.test(String(val))) return false;
           return true;
@@ -129,6 +135,7 @@ function removePdfExcludedElements(clonedDoc, contentRootId) {
   const root = clonedDoc.getElementById(contentRootId);
   if (!root) return;
 
+  // Remove controls from the print/PDF copy so the report reads as a formal memo.
   root.querySelectorAll(PDF_EXCLUDE_SELECTOR).forEach((el) => {
     el.remove();
   });
@@ -154,6 +161,7 @@ function buildPdfCloneHandler(element, contentRootId) {
     const clonedElement = clonedDoc.getElementById(contentRootId);
 
     if (clonedElement) {
+      // Force light-mode report output regardless of the user's active theme.
       clonedElement.classList.remove('dark');
       clonedElement.style.backgroundColor = '#ffffff';
       clonedElement.style.color = '#0f172a';
@@ -361,6 +369,7 @@ export async function exportElementToPdf(elementId, filenameBase) {
 
 function appendSheetsToWorkbook(workbook, sheets, colWidths = {}) {
   Object.entries(sheets).forEach(([name, data]) => {
+    // Sheet data is assembled as arrays so it can be reused for single and batch exports.
     const sheet = XLSX.utils.aoa_to_sheet(data);
     if (colWidths[name]) {
       sheet['!cols'] = colWidths[name];
@@ -379,6 +388,7 @@ function defaultAgentVoteRows(agentVotes) {
     ]);
   }
 
+  // Keep the exported audit log complete even when the backend omits agent vote records.
   return [
     ['Risk Auditor', 'CONDITIONAL', 'Missing underwriting evidence requires manual risk review.', 'Medium'],
     ['Advocate', 'CONDITIONAL', 'Potential credit support cannot be confirmed from available data.', 'Medium'],
@@ -387,6 +397,7 @@ function defaultAgentVoteRows(agentVotes) {
 }
 
 export function buildSingleAnalysisWorkbook(data, ticker) {
+  // Workbook tabs mirror the visible dashboard sections for judge-friendly review.
   const committeeDecision = data?.committee_decision || 'N/A';
   const defaultRiskLevel = data?.default_risk_level || 'N/A';
   const recommendedTerms = data?.recommended_loan_terms || {};
@@ -463,6 +474,7 @@ export function buildSingleAnalysisWorkbook(data, ticker) {
   ];
 
   if (hasRawTelemetry && rawTelemetry) {
+    // Preserve entity prefixes so raw metrics remain traceable in multi-entity payloads.
     Object.entries(rawTelemetry).forEach(([entity, telemetry]) => {
       if (telemetry && typeof telemetry === 'object') {
         Object.entries(telemetry).forEach(([key, value]) => {
@@ -532,6 +544,7 @@ export function buildSingleAnalysisWorkbook(data, ticker) {
 }
 
 export function buildBatchAnalysisWorkbook(results) {
+  // Batch export denormalizes each result row into shared sheets for easier comparison.
   const items = Array.isArray(results) ? results : [];
   const tickers = items.map((item) => item?.ticker).filter(Boolean);
   const batchLabel = tickers.join('-') || 'batch';
@@ -621,6 +634,7 @@ export function buildBatchAnalysisWorkbook(results) {
     ]);
 
     if ((covenants || []).length === 0) {
+      // Absence of covenants is still material in a credit memo, so call it out explicitly.
       covenantsData.push([ticker, 1, 'Requires manual underwriting', 'Mandatory']);
     } else {
       covenants.forEach((covenant, index) => {
@@ -633,6 +647,7 @@ export function buildBatchAnalysisWorkbook(results) {
     });
 
     if (rawTelemetry && Object.keys(rawTelemetry).length > 0) {
+      // Telemetry may be sliced per ticker or shared; include both entity and metric labels.
       Object.entries(rawTelemetry).forEach(([entity, telemetry]) => {
         if (telemetry && typeof telemetry === 'object') {
           Object.entries(telemetry).forEach(([key, value]) => {

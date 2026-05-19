@@ -19,6 +19,7 @@ var client = resty.New().SetTimeout(3 * time.Minute)
 var markdownJSONFencePattern = regexp.MustCompile("(?is)^\\s*```(?:json)?\\s*(.*?)\\s*```\\s*$")
 
 func stripMarkdownJSONFence(body []byte) []byte {
+	// The Python worker normally returns JSON, but CrewAI/LLM paths may leak markdown fences.
 	cleaned := strings.TrimSpace(string(body))
 	matches := markdownJSONFencePattern.FindStringSubmatch(cleaned)
 	if len(matches) == 2 {
@@ -55,6 +56,7 @@ func CallAIWorker(req models.AnalyzeRequest) (models.AnalyzeResponse, []byte, er
 	}
 
 	if aiResp.CommitteeDecision == "" && aiResp.DefaultRiskLevel == "" && aiResp.JustificationSummary == "" {
+		// Backwards compatibility for older worker responses that nested the memo.
 		var wrapped struct {
 			CreditCommitteeMemo models.AnalyzeResponse `json:"credit_committee_memo"`
 		}
@@ -66,6 +68,7 @@ func CallAIWorker(req models.AnalyzeRequest) (models.AnalyzeResponse, []byte, er
 			wrapped.CreditCommitteeMemo.DefaultRiskLevel != "" ||
 			wrapped.CreditCommitteeMemo.JustificationSummary != "" {
 			aiResp = wrapped.CreditCommitteeMemo
+			// Store the normalized shape so future cache hits do not repeat wrapper parsing.
 			body, err = json.Marshal(aiResp)
 			if err != nil {
 				log.Printf("Marshal error: %v", err)

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = "https://btk-hackathon2026-elitedevs.onrender.com/"
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://btk-hackathon2026-elitedevs.onrender.com").replace(/\/$/, "") + "/";
 
 // Rate limiting configuration
 const RATE_LIMIT = {
@@ -16,14 +16,14 @@ let windowStart = Date.now();
 const checkRateLimit = () => {
   const now = Date.now();
   
-  // Reset window if time has passed
+  // Client-side throttling protects the demo backend from rapid manual testing.
   if (now - windowStart > RATE_LIMIT.windowMs) {
     windowStart = now;
     requestCount = 0;
     console.log('🔄 Rate limit window reset');
   }
   
-  // Check if exceeded max requests
+  // Fail early before sending requests that the backend would likely reject or queue.
   if (requestCount >= RATE_LIMIT.maxRequests) {
     const timeUntilReset = RATE_LIMIT.windowMs - (now - windowStart);
     const errorMsg = `Rate limit exceeded. Please wait ${Math.ceil(timeUntilReset / 1000)} seconds.`;
@@ -31,7 +31,7 @@ const checkRateLimit = () => {
     throw new Error(errorMsg);
   }
   
-  // Check minimum delay between requests
+  // Smooth bursts from button double-clicks or repeated test calls.
   const timeSinceLastRequest = now - lastRequestTime;
   if (timeSinceLastRequest < RATE_LIMIT.delayMs) {
     const delayNeeded = RATE_LIMIT.delayMs - timeSinceLastRequest;
@@ -47,7 +47,7 @@ const client = axios.create({
   },
 });
 
-// Add request interceptor for rate limiting
+// Apply throttling in one interceptor so API helpers stay simple.
 client.interceptors.request.use(async (config) => {
   await checkRateLimit();
   lastRequestTime = Date.now();
@@ -57,7 +57,7 @@ client.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Error interceptor for better error handling
+// Keep rate-limit messages visible during demos and manual QA.
 client.interceptors.response.use(
   response => response,
   error => {
@@ -68,13 +68,13 @@ client.interceptors.response.use(
   }
 );
 
-// Test function to verify rate limiting
+// Manual QA helper used by the RateLimitTest component.
 export const testRateLimit = async () => {
   console.log('🧪 Starting Rate Limit Test...');
   console.log(`Max Requests: ${RATE_LIMIT.maxRequests}, Window: ${RATE_LIMIT.windowMs}ms, Delay: ${RATE_LIMIT.delayMs}ms`);
   
   try {
-    // Try to make 15 rapid health check requests to trigger rate limit
+    // Make more calls than the configured window allows to prove the guard works.
     for (let i = 1; i <= 15; i++) {
       try {
         console.log(`\n📡 Test Request #${i}...`);
@@ -108,7 +108,7 @@ export const assessCredit = async (applicantData) => {
   }
 };
 
-// Keep legacy function for backwards compatibility if needed
+// Keep legacy function for older components and scripts that call the client directly.
 export const analyzeStocks = async (symbols, period = '1y', useCrew = false) => {
   try {
     const response = await client.post('/api/analyze', {

@@ -25,6 +25,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
+    # The gateway and frontend can be hosted on different hackathon/demo origins.
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -41,6 +42,7 @@ class AnalyzeRequest(BaseModel):
     @field_validator("symbols")
     @classmethod
     def normalize_symbols(cls, symbols: List[str]) -> List[str]:
+        # Keep downstream cache keys and yfinance lookups deterministic.
         normalized = [symbol.strip().upper() for symbol in symbols if symbol and symbol.strip()]
         if not normalized:
             raise ValueError("At least one non-empty stock symbol is required.")
@@ -58,6 +60,7 @@ def history() -> List[Any]:
 
 
 def _fallback_memo(symbols: List[str], period: str, requested_amount: Optional[str], detail: str = "") -> Dict[str, Any]:
+    # Fallback still follows the frontend contract so the UI can show a manual-review memo.
     symbol = symbols[0] if symbols else "AAPL"
     requested_amount_label = requested_amount or "50"
     now = datetime.now(timezone.utc).isoformat()
@@ -127,6 +130,7 @@ def _fallback_memo(symbols: List[str], period: str, requested_amount: Optional[s
 
 
 def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -> Dict[str, Any]:
+    # The orchestrator can return direct, CrewAI-wrapped, or already-flattened payloads.
     memo = result.get("credit_committee_memo")
 
     if not isinstance(memo, dict) and isinstance(result.get("crew_result"), dict):
@@ -146,6 +150,7 @@ def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -
             memo = result
 
     if not isinstance(memo, dict):
+        # A successful analysis without a memo is safer as manual review than a broken page.
         return _fallback_memo(
             request.symbols,
             request.period,
@@ -155,6 +160,7 @@ def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -
 
     recommended_terms = memo.get("recommended_loan_terms")
     if not isinstance(recommended_terms, dict):
+        # Preserve the shape consumed by Dashboard and export utilities.
         recommended_terms = {
             "max_amount": "$0M",
             "tenor": "0 months",
@@ -167,6 +173,7 @@ def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -
 
     agent_votes = memo.get("agent_votes")
     if not isinstance(agent_votes, list):
+        # Agent audit rows are part of the explainability surface, so synthesize one if absent.
         agent_votes = [
             {
                 "agent_name": "Risk Auditor",
@@ -180,14 +187,17 @@ def _extract_frontend_payload(result: Dict[str, Any], request: AnalyzeRequest) -
         raw_telemetry = {}
 
     return {
-        "committee_decision": memo.get("committee_decision", "CONDITIONAL"),
+        "committee_decision": memo.get("committee_decision", memo.get("decision", "CONDITIONAL")),
         "default_risk_level": memo.get("default_risk_level", "MEDIUM"),
         "recommended_loan_terms": {
             "max_amount": recommended_terms.get("max_amount", "$0M"),
             "tenor": recommended_terms.get("tenor", "0 months"),
             "covenants": recommended_terms.get("covenants", ["Standard covenants apply"]),
         },
-        "justification_summary": memo.get("justification_summary", "Decision based on automated financial review."),
+        "justification_summary": memo.get("justification_summary", memo.get("reasoning", "Decision based on automated financial review.")),
+        "reasoning": memo.get("reasoning", memo.get("justification_summary", "Decision based on automated financial review.")),
+        "confidence": memo.get("confidence", 50.0),
+        "flags": memo.get("flags", []),
         "raw_telemetry": raw_telemetry,
         "agent_votes": agent_votes,
         "symbols": result.get("symbols", request.symbols),
@@ -206,6 +216,7 @@ async def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
         loop = asyncio.get_running_loop()
         
         def run_sync():
+            # CrewAI/yfinance work is synchronous; isolate it from the FastAPI event loop.
             return get_orchestrator().analyze_stocks(
                 symbols=request.symbols,
                 analysis_period=request.period,
@@ -216,7 +227,7 @@ async def analyze(request: AnalyzeRequest) -> Dict[str, Any]:
         with ThreadPoolExecutor() as pool:
             result = await asyncio.wait_for(
                 loop.run_in_executor(pool, run_sync),
-                timeout=50.0  # Safe margin below Render's 60s timeout
+                timeout=50.0  # Safe margin below Render's 60s timeout.
             )
             
     except asyncio.TimeoutError:

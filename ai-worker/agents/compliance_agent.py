@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 def search_compliance_news(symbol: str) -> str:
     """Useful to search recent news for GDPR, KVKK violations, lawsuits, or data breaches for a specific company symbol."""
     try:
+        # Limit the tool to recent news so the compliance vote reflects current lending risk.
         news = news_sentiment_tool.get_stock_news(symbol, days_back=30)
         result = []
         for n in news:
@@ -68,6 +69,7 @@ class ComplianceAgent:
                 
                 for item in news:
                     text = (item.get('title', '') + " " + item.get('summary', '')).lower()
+                    # Keyword match is intentionally conservative: a hit triggers manual/legal review.
                     if any(keyword in text for keyword in ['lawsuit', 'breach', 'gdpr', 'kvkk', 'violation', 'fraud', 'investigation', ' sec ', 'sec filing', 'sec probe']):
                         has_issue = True
                         summary = f"Potential legal risks detected in recent news for {symbol}. Review regulatory and news sources for details."
@@ -78,6 +80,7 @@ class ComplianceAgent:
                     "legal_summary": summary
                 }
                 
+            # A single entity-level legal concern vetoes the aggregated committee memo.
             any_veto = any(res["veto_flag"] for res in results.values())
             overall_summary = " | ".join([f"{sym}: {res['legal_summary']}" for sym, res in results.items()])
             

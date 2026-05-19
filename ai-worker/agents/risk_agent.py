@@ -56,6 +56,7 @@ class RiskAgent:
             
             for symbol in symbols:
                 if symbol not in stock_data or "error" in stock_data[symbol]:
+                    # Keep per-symbol failures isolated so batch analysis can still return useful rows.
                     risk_metrics[symbol] = {"error": "No data available for risk calculation"}
                     continue
                 
@@ -67,6 +68,7 @@ class RiskAgent:
                     continue
                 
                 prices = np.array(list(hist_data["Close"].values()))
+                # Daily returns power volatility, VaR, Sharpe, and the composite risk score.
                 returns = np.diff(prices) / prices[:-1]
                 
                 metrics = {
@@ -152,6 +154,7 @@ class RiskAgent:
                 
                 # Ignore missing fundamentals and rely on tech/risk
                 if "error" in tech_data and "error" in risk_data:
+                    # No automated approval should be issued when both signal sources are unavailable.
                     recommendations[symbol] = {
                         "committee_decision": "MANUAL_REVIEW",
                         "justification_summary": "Incomplete analysis data for this entity",
@@ -173,6 +176,7 @@ class RiskAgent:
                     technical_signal, technical_confidence, fundamental_score, risk_score
                 )
                 
+                # Loan capacity and covenants are deterministic so What-If simulations are reproducible.
                 max_amount = self.calculate_loan_amount(risk_score, technical_confidence)
                 tenor, covenants = self.calculate_loan_terms(technical_signal, risk_score)
                 
@@ -195,7 +199,7 @@ class RiskAgent:
                     )
                 }
 
-                # What-If override: if requested_amount exceeds computed max, force REJECT/CONDITIONAL
+                # What-If override: requested facilities above capacity must tighten or fail the decision.
                 if requested_amount:
                     try:
                         req_val = float(requested_amount.replace("$", "").replace("M", "").replace(",", "").strip())
@@ -226,6 +230,7 @@ class RiskAgent:
                                 override_reason=f"Requested amount is above computed capacity of ${max_amount:.1f}M."
                             )
                     except ValueError:
+                        # Invalid user-entered amount should not crash the committee pipeline.
                         pass
             
             return {
@@ -252,6 +257,7 @@ class RiskAgent:
             if symbol in technical_analysis:
                 tech_data = technical_analysis[symbol]
                 if "error" not in tech_data:
+                    # Later stages expect a stock_data-like shape even when only technical data exists.
                     stock_data[symbol] = {
                         "historical_data": {"Close": {}},
                         "current_price": tech_data.get("current_price")
@@ -269,6 +275,7 @@ class RiskAgent:
         if not any("historical_data" in data and data["historical_data"]["Close"] 
                   for data in stock_data.values() if "error" not in data):
             logger.warning("Insufficient historical data for detailed risk analysis, using fallback assessment")
+            # Fallback metrics keep the memo complete while clearly marking the estimate.
             risk_metrics = self._generate_fallback_risk_metrics(symbols, technical_analysis)
         else:
             risk_metrics = self.calculate_risk_metrics(symbols, stock_data)
@@ -298,6 +305,7 @@ class RiskAgent:
             technical_signal = tech_data.get("trading_signals", {}).get("overall_signal", "NEUTRAL")
             confidence = tech_data.get("trading_signals", {}).get("confidence", 0.5)
             
+            # Start from moderate risk and move only when the technical signal is confident.
             base_risk = 50  # Default moderate risk
             
             if technical_signal == "LOW DEFAULT RISK" and confidence > 0.7:
@@ -343,6 +351,7 @@ class RiskAgent:
         return float(excess_returns / np.std(returns) * np.sqrt(252))
     
     def calculate_beta(self, returns: np.ndarray, symbol: str) -> float:
+        # Market benchmark data is not fetched in this path; use a conservative assumed volatility.
         market_volatility = 0.16  # Assumed market volatility
         stock_volatility = np.std(returns) * np.sqrt(252)
         
@@ -355,6 +364,7 @@ class RiskAgent:
         volatility = np.std(returns) * np.sqrt(252)
         max_dd = abs(self.calculate_max_drawdown(prices))
         
+        # Cap volatility and drawdown contributions so one noisy series cannot dominate entirely.
         vol_score = min(volatility * 100, 50)  # Cap at 50
         dd_score = min(max_dd * 100, 50)      
         

@@ -25,6 +25,7 @@ const AVATAR_GRADIENT_BY_ID = {
 function formatMoney(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return '—';
+  // This board is for Turkish loan applications, so format amounts with TRY locale rules.
   return `₺${Math.round(v).toLocaleString('tr-TR')}`;
 }
 
@@ -40,6 +41,7 @@ export default function AgentReviewBoard({ active, context }) {
   }, [context]);
 
   useEffect(() => {
+    // Restart the scripted agent timeline every time a new review becomes active.
     timers.current.forEach(clearTimeout);
     timers.current = [];
     if (!active) {
@@ -56,6 +58,7 @@ export default function AgentReviewBoard({ active, context }) {
 
     const pushMsg = (agentId, text, delayMs) => {
       schedule(delayMs, () => {
+        // Store timeline rows instead of replacing them so the user can audit the sequence.
         setActiveAgent(agentId);
         setLines((prev) => [...prev, { kind: 'msg', agentId, text, t: Date.now() }]);
       });
@@ -68,6 +71,7 @@ export default function AgentReviewBoard({ active, context }) {
     };
 
     let acc = 350;
+    // Staggered delays make the frontend animation line up with real backend waiting time.
     pushMsg(
       'orchestrator',
       `${label} için çok-ajan değerlendirmesi başlatıldı. Görevler sırayla yürütülüyor.`,

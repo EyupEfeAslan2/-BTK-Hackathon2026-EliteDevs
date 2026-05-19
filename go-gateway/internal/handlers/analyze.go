@@ -20,6 +20,7 @@ import (
 func generateCacheKey(symbols []string, period string) string {
 	sortedSymbols := make([]string, len(symbols))
 	copy(sortedSymbols, symbols)
+	// Symbol order should not create duplicate cache rows for the same batch.
 	sort.Strings(sortedSymbols)
 
 	return fmt.Sprintf("%s|%s", strings.Join(sortedSymbols, ","), period)
@@ -38,7 +39,7 @@ func HandleAnalyze(c *fiber.Ctx) error {
 
 	cacheKey := generateCacheKey(req.Symbols, req.Period)
 
-	// Bypass cache when requested_amount is provided (What-If simulation)
+	// Bypass cache when requested_amount is provided because each amount changes the underwriting result.
 	if req.RequestedAmount == "" {
 		// Check SQLite cache
 		var responseJSON string
@@ -47,7 +48,7 @@ func HandleAnalyze(c *fiber.Ctx) error {
 		err := db.DB.QueryRow("SELECT response_json, created_at FROM analyses WHERE ticker = ?", cacheKey).Scan(&responseJSON, &createdAt)
 
 		if err == nil {
-			// Record exists, check if it is less than 24 hours old
+			// Market data and legal news age quickly; 24 hours is the demo freshness window.
 			if time.Since(createdAt) < 24*time.Hour {
 				fmt.Printf("\033[32m[Gateway] Cache hit for %v over period '%s'. Returning instantly.\033[0m\n", req.Symbols, req.Period)
 
@@ -58,20 +59,19 @@ func HandleAnalyze(c *fiber.Ctx) error {
 				} else {
 					log.Printf("Unmarshal error: %v", err)
 				}
-				// If unmarshaling fails, proceed to call AI worker
+				// If cached JSON is stale or malformed, fall through to the AI worker.
 			}
 		} else if err != sql.ErrNoRows {
-			// Log error but proceed to fetch from AI worker
+			// Cache errors should degrade to live analysis instead of failing the request.
 			fmt.Printf("Error querying cache: %v\n", err)
 		}
 	} else {
 		fmt.Printf("\033[33m[Gateway] What-If simulation for %v with requested_amount=%s. Bypassing cache.\033[0m\n", req.Symbols, req.RequestedAmount)
 	}
 
-	// Mock architectural layer for hackathon flair
-	// Terminal glow colors (Cyan)
+	// Short delay makes the terminal-style frontend animation feel connected to gateway work.
 	fmt.Printf("\033[36m[Gateway] Correlating merchant RF data for %v over period '%s'...\033[0m\n", req.Symbols, req.Period)
-	time.Sleep(500 * time.Millisecond) // Slight delay to emphasize the log
+	time.Sleep(500 * time.Millisecond)
 
 	// Call the AI worker
 	resp, rawResp, err := services.CallAIWorker(req)
@@ -138,6 +138,7 @@ func HandleHistory(c *fiber.Ctx) error {
 }
 
 func extractCommitteeDecision(responseJSON string) string {
+	// History can contain both flattened and wrapped responses from earlier service versions.
 	var direct models.AnalyzeResponse
 	if err := json.Unmarshal([]byte(responseJSON), &direct); err == nil && direct.CommitteeDecision != "" {
 		return direct.CommitteeDecision

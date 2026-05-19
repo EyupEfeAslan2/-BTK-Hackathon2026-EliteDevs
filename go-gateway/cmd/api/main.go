@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	// Initialize database
+	// Initialize SQLite before routes so handlers can read/write the analysis cache.
 	db.InitDB()
 
 	// Setup the Fiber app
@@ -20,7 +20,7 @@ func main() {
 		DisableStartupMessage: true, // Disable default to show our cool banner
 	})
 
-	// Add CORS middleware (allow all for hackathon)
+	// The frontend may run locally or on Render, so the hackathon gateway accepts all origins.
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
 		AllowMethods: "GET,POST,OPTIONS",
@@ -31,7 +31,7 @@ func main() {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	// Mount a POST route
+	// Keep /api/v1/analyze as the public gateway contract used by deployed clients.
 	app.Post("/api/v1/analyze", handlers.HandleAnalyze)
 	app.Get("/history", handlers.HandleHistory)
 

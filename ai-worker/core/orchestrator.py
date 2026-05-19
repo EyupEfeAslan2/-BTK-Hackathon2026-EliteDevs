@@ -33,6 +33,7 @@ class FinancialAnalysisOrchestrator:
         logger.info(f"Available LLM providers: {get_gemini()}")
     
     def create_analysis_crew(self, symbols: List[str], analysis_period: str = "1y", requested_amount: Optional[str] = None) -> Crew:
+        # CrewAI output is LLM-generated, so force a strict JSON contract at the final task.
         raw_json_instruction = "CRITICAL: OUTPUT ONLY RAW VALID JSON. DO NOT WRAP IN MARKDOWN. DO NOT USE ```json."
         data_task = self.data_agent.create_data_collection_task(symbols, analysis_period)
         
@@ -45,6 +46,7 @@ class FinancialAnalysisOrchestrator:
         risk_task = self.risk_agent.create_risk_assessment_task({"symbols": symbols})
         risk_task.description = f"{risk_task.description}\n\n{raw_json_instruction}"
         if requested_amount:
+            # What-If simulations must evaluate the requested facility, not only a generic borrower profile.
             risk_task.description += f"\n\nThe user is specifically requesting a loan of {requested_amount}. You MUST evaluate if their financial telemetry (liquidity, cash flow) can support this exact debt burden. If it is too high, you MUST REJECT or severely CONDITIONAL the request."
         risk_task.context = [data_task, analysis_task, compliance_task]
         
@@ -74,8 +76,10 @@ class FinancialAnalysisOrchestrator:
         
         try:
             if use_crew:
+                # Crew mode is slower but provides a richer multi-agent trace for demos.
                 result = self.analyze_with_crew(symbols, analysis_period, requested_amount=requested_amount)
             else:
+                # Direct mode is the production path for predictable latency and easier normalization.
                 result = self.analyze_direct(symbols, analysis_period, requested_amount=requested_amount)
 
             return self.make_json_safe(result)
@@ -103,6 +107,7 @@ class FinancialAnalysisOrchestrator:
         
         if isinstance(crew_result, dict):
             if compliance_results.get("veto_flag", False):
+                # Compliance veto overrides optimistic LLM committee language.
                 crew_result["committee_decision"] = "REJECTED"
                 
             for vote in crew_result.get("agent_votes", []):
@@ -165,6 +170,7 @@ class FinancialAnalysisOrchestrator:
         
         if "error" in compliance_results:
             logger.warning(f"Compliance analysis failed: {compliance_results['error']}")
+            # Missing compliance data should not block the financial analysis pipeline.
             compliance_results = {
                 "veto_flag": False,
                 "legal_summary": "Compliance analysis failed or unavailable."
@@ -197,7 +203,7 @@ class FinancialAnalysisOrchestrator:
                                   risk: Dict[str, Any],
                                   compliance: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         
-        # If no risk recommendations are available
+        # If no risk recommendations are available, return a complete memo instead of partial data.
         risk = risk if isinstance(risk, dict) else {}
         recs_obj = risk.get("recommendations", {})
         recs_obj = recs_obj if isinstance(recs_obj, dict) else {}
@@ -236,7 +242,7 @@ class FinancialAnalysisOrchestrator:
                 ]
             }
             
-        # For a single symbol (most common use case in this app)
+        # For a single symbol, flatten the per-entity decision into the frontend memo contract.
         elif len(symbols) == 1 or len(recommendations) == 1:
             symbol = symbols[0] if symbols else list(recommendations.keys())[0]
             rec = recommendations.get(symbol, {})
@@ -264,7 +270,7 @@ class FinancialAnalysisOrchestrator:
                 "agent_votes": agent_votes
             }
         
-        # If multiple symbols are requested, aggregate them into a portfolio memo
+        # If multiple symbols are requested, aggregate them into a portfolio memo.
         else:
             overall_resolution = recs_obj.get("overall_resolution", {})
             overall_resolution = overall_resolution if isinstance(overall_resolution, dict) else {}
@@ -298,13 +304,14 @@ class FinancialAnalysisOrchestrator:
                 ]
             }
 
-        # --- CRITICAL VETO ---
+        # Compliance rejection is a hard veto even when risk/advocate agents are favorable.
         for vote in final_results.get("agent_votes", []):
             if isinstance(vote, dict) and vote.get("agent_name") == "Compliance" and str(vote.get("vote", "")).upper() == "REJECT":
                 final_results["committee_decision"] = "REJECTED"
                 break
 
         try:
+            # Slack is observability only; failures must never fail an underwriting response.
             self.notify_slack(
                 symbols,
                 final_results.get("committee_decision", "UNKNOWN"),
@@ -337,6 +344,7 @@ class FinancialAnalysisOrchestrator:
         telemetry = {}
 
         for symbol in symbols:
+            # Raw telemetry keeps exports auditable without exposing the whole provider payload.
             stock = stocks.get(symbol, {})
             info = stock.get("company_info", {}) if isinstance(stock, dict) else {}
             fundamental = fundamentals.get(symbol, {}) if isinstance(fundamentals, dict) else {}
@@ -363,6 +371,7 @@ class FinancialAnalysisOrchestrator:
             compliance: Optional[Dict[str, Any]]) -> List[Dict[str, str]]:
 
         votes = [
+            # Normalize agent vote rows because LLM and deterministic paths can use mixed schemas.
             {
                 "agent_name": str(vote.get("agent_name", "")),
                 "vote": str(vote.get("vote", "CONDITIONAL")),
@@ -373,6 +382,7 @@ class FinancialAnalysisOrchestrator:
         ]
 
         if not any(vote.get("agent_name") == "Compliance" for vote in votes):
+            # Always show compliance posture in the audit log, even when no issue was found.
             votes.append({
                 "agent_name": "Compliance",
                 "vote": "APPROVE",
@@ -382,6 +392,7 @@ class FinancialAnalysisOrchestrator:
         if compliance and compliance.get("veto_flag"):
             for vote in votes:
                 if vote.get("agent_name") == "Compliance":
+                    # Truncate legal summaries so badges/tables stay readable in the UI.
                     vote["vote"] = "REJECT"
                     vote["brief_reason"] = compliance.get("legal_summary", "Compliance veto requires rejection.")[:180]
 
@@ -396,6 +407,7 @@ class FinancialAnalysisOrchestrator:
             return
 
         decision_upper = str(decision).upper()
+        # Map decision states to Slack attachment colors for quick triage.
         if "APPROVE" in decision_upper:
             color = "#10b981"   # Green
         elif "REJECT" in decision_upper:
@@ -427,6 +439,7 @@ class FinancialAnalysisOrchestrator:
             logger.warning(f"Slack webhook request failed: {e}")
 
     def parse_crew_result(self, result: Any) -> Any:
+        # CrewAI may return model objects, dicts, strings, or markdown-wrapped JSON.
         raw_result = getattr(result, "raw", result)
 
         if isinstance(raw_result, (dict, list)):
@@ -441,25 +454,75 @@ class FinancialAnalysisOrchestrator:
         if isinstance(raw_result, str):
             text = raw_result.strip()
             
-            # --- ACIMASIZ MARKDOWN TEMİZLEYİCİ ---
-            # LLM'nin araya sıkıştırdığı ```json veya ``` etiketlerini yok eder
+            # Remove markdown fences that LLMs often add despite raw JSON instructions.
             text = re.sub(r'```json\s*', '', text, flags=re.IGNORECASE)
             text = re.sub(r'```\s*', '', text)
             text = text.strip()
-            # ------------------------------------
             
             for candidate in (text, self.extract_json_payload(text)):
                 if not candidate:
                     continue
                 try:
-                    return self.make_json_safe(json.loads(candidate))
+                    parsed = json.loads(candidate)
+                    safe = self.make_json_safe(parsed)
+                    return self.sanitize_llm_output(safe)
                 except json.JSONDecodeError:
                     continue
-            return {"raw": text}
+            return self.sanitize_llm_output({"raw": text})
 
-        return self.make_json_safe(raw_result)
+        return self.sanitize_llm_output(self.make_json_safe(raw_result))
+
+    def sanitize_llm_output(self, data: Any) -> Dict[str, Any]:
+        # Convert malformed LLM output into a conservative schema the gateway can trust.
+        if not isinstance(data, dict):
+            data = {"raw_fallback": str(data)}
+            
+        decision = data.get("committee_decision") or data.get("decision")
+        if isinstance(decision, str):
+            decision = decision.upper()
+        
+        valid_decisions = ["APPROVED", "CONDITIONAL", "MANUAL_REVIEW"]
+        
+        # Map common LLM variants to the small set of decisions supported by the UI.
+        if decision == "APPROVE": decision = "APPROVED"
+        elif decision == "REJECT": decision = "MANUAL_REVIEW"
+        elif decision == "REJECTED": decision = "MANUAL_REVIEW"
+        elif decision not in valid_decisions: decision = "MANUAL_REVIEW"
+        
+        confidence = data.get("confidence", 50.0)
+        if not isinstance(confidence, (int, float)):
+            try:
+                confidence = float(confidence)
+            except (ValueError, TypeError):
+                confidence = 50.0
+                
+        reasoning = data.get("reasoning") or data.get("justification_summary")
+        if not isinstance(reasoning, str):
+            reasoning = "Manual compliance review required due to ambiguous or malformed output."
+            
+        flags = data.get("flags", [])
+        if not isinstance(flags, list):
+            flags = ["schema_recovery"]
+            
+        sanitized = {
+            "decision": decision,
+            "committee_decision": decision,
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "justification_summary": reasoning,
+            "flags": flags,
+            "default_risk_level": data.get("default_risk_level", "UNKNOWN") if isinstance(data.get("default_risk_level"), str) else "UNKNOWN"
+        }
+        
+        # Merge back extra fields to preserve backwards compatibility with older frontend panels.
+        for k, v in data.items():
+            if k not in sanitized:
+                sanitized[k] = v
+                
+        return sanitized
 
     def extract_json_payload(self, text: str) -> str:
+        # Prefer the largest JSON-looking span when the model adds prose around the payload.
         object_start = text.find("{")
         object_end = text.rfind("}")
         array_start = text.find("[")
@@ -474,6 +537,7 @@ class FinancialAnalysisOrchestrator:
         return max(candidates, key=len, default="")
 
     def make_json_safe(self, value: Any) -> Any:
+        # Normalize numpy/pandas/CrewAI objects before FastAPI attempts JSON serialization.
         if isinstance(value, dict):
             return {str(key): self.make_json_safe(item) for key, item in value.items()}
         if isinstance(value, (list, tuple, set)):
@@ -546,4 +610,5 @@ class FinancialAnalysisOrchestrator:
     
 @lru_cache(maxsize=1)
 def get_orchestrator() -> FinancialAnalysisOrchestrator:
+    # Agent construction is expensive and validates API keys; reuse it per process.
     return FinancialAnalysisOrchestrator()

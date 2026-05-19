@@ -11,17 +11,15 @@ var DB *sql.DB
 
 func InitDB() {
 	var err error
-	// Create database in the current working directory, or a specific path
-	// Assuming running from go-gateway root
+	// Keep the demo cache local to the gateway container/process.
 	dbPath := "analysis_cache.db"
 
-	// Ensure the directory exists if we decide to place it elsewhere, but we'll use root
 	DB, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatalf("Failed to open SQLite database: %v", err)
 	}
 
-	// Create table if not exists
+	// The cache stores the exact normalized worker response used by the frontend.
 	createTableQuery := `
 	CREATE TABLE IF NOT EXISTS analyses (
 		ticker TEXT PRIMARY KEY,

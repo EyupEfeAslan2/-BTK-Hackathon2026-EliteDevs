@@ -28,6 +28,7 @@ function pickDashboardFields(source) {
     source.credit_committee_memo &&
     typeof source.credit_committee_memo === 'object'
   ) {
+    // Older worker responses nest the memo; recurse so batch rows still hydrate Dashboard.
     return pickDashboardFields(source.credit_committee_memo);
   }
   return out;
@@ -36,6 +37,7 @@ function pickDashboardFields(source) {
 function buildPerTickerTelemetry(fullTelemetry, ticker) {
   if (!fullTelemetry || typeof fullTelemetry !== 'object') return fullTelemetry;
   if (Object.prototype.hasOwnProperty.call(fullTelemetry, ticker)) {
+    // Preserve only the selected ticker's telemetry when a shared memo covers a batch.
     return { [ticker]: fullTelemetry[ticker] };
   }
   return fullTelemetry;
@@ -72,6 +74,7 @@ export function mapBatchAnalyzeResponse(payload, requestedSymbols) {
     return symbols.map((ticker) => {
       const slice = per[ticker];
       if (slice !== undefined && slice !== null) {
+        // Per-symbol slices override shared fields while inheriting common memo metadata.
         return {
           ticker,
           data: { ...pickDashboardFields(payload), ...pickDashboardFields(slice) },
@@ -89,6 +92,7 @@ export function mapBatchAnalyzeResponse(payload, requestedSymbols) {
         .toUpperCase();
       if (!t) continue;
       const inner = entry?.data ?? entry;
+      // Accept both `{ticker, data}` and flattened `{symbol, ...memo}` contracts.
       byTicker.set(t, { ...pickDashboardFields(payload), ...pickDashboardFields(inner) });
     }
     return symbols.map((ticker) => ({
