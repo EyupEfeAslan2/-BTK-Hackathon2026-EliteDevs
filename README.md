@@ -12,7 +12,7 @@
 
 <br/>
 
-[![Live Demo](https://img.shields.io/badge/%F0%9F%9A%80_Live_Demo-Online-10B981?style=for-the-badge)](https://btk-hackaton-2026-elitedevs.netlify.app/)
+[![Live Demo](https://img.shields.io/badge/%F0%9F%9A%80_Live_Demo-Online-10B981?style=for-the-badge)](https://btk-hackathon2026-elite-devs.vercel.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-E8B931?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![BTK Hackathon](https://img.shields.io/badge/BTK_Hackathon-2026-FF6B6B?style=for-the-badge)](https://www.btk.gov.tr/)
 
