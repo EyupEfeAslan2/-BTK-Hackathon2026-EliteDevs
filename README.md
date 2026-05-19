@@ -41,9 +41,20 @@ Current financial AI tools either summarize PDFs or predict stock prices. They c
 
 Regulatory frameworks like **Basel III**, **SR 11-7**, and **EU AI Act** demand that every automated credit decision comes with a complete, auditable justification trail. Black-box models are not just risky — they are **non-compliant**.
 
-##  The Solution
+## The Solution
 
 **CoreMine Risk** is an enterprise-grade decision support system that orchestrates specialized AI agents to simulate a **Corporate Credit Committee**. Instead of a single opaque model, it forces distinct AI personas into adversarial debate — producing the exact mathematical and logical justification required by financial compliance law.
+
+CoreMine Risk implements a **four-state institutional decision framework** inspired by real-world banking governance workflows:
+
+- **APPROVED** → Low-risk entities with strong financial stability, liquidity, and compliance alignment
+- **CONDITIONAL** → Borderline entities requiring covenant enforcement, additional collateralization, or tighter monitoring controls
+- **REJECTED** → High-risk entities failing critical financial, risk, or compliance thresholds
+- **MANUAL_REVIEW** → Compliance escalation pathway triggered when confidence, data integrity, market transparency, or regulatory certainty thresholds are not fully satisfied
+
+Rather than forcing unsafe automation, the platform is explicitly designed to recognize uncertainty and escalate sensitive cases to human oversight — aligning with **Basel III operational risk principles**, **SR 11-7 model governance expectations**, and modern AI compliance requirements.
+
+This transforms uncertainty handling from a system weakness into a deliberate **risk-governance mechanism** designed for institutional-grade decision safety.
 
 <table>
 <tr>
@@ -65,6 +76,7 @@ Regulatory frameworks like **Basel III**, **SR 11-7**, and **EU AI Act** demand 
 - ✅ Complete audit trail for every decision
 - ✅ Consistent, multi-agent consensus-driven verdicts
 - ✅ Committee-level justification with agent vote records
+- ✅ Human escalation pathways for uncertain or high-risk cases
 
 </td>
 </tr>
@@ -182,19 +194,51 @@ sequenceDiagram
         O->>C: Step 3 — Regulatory Compliance Review
         C-->>O: Veto flags, legal summary
         O->>R: Step 4 — Credit Committee Decision
-        R-->>O: APPROVED / CONDITIONAL / REJECTED
+        R-->>O: APPROVED / CONDITIONAL / REJECTED / MANUAL_REVIEW
         O-->>G: Credit Committee Memo (JSON)
         G->>G: Cache result in SQLite
     end
     
     G-->>U: Structured Credit Decision + XAI Justification
+    
 ```
+### Response Example
 
----
+```json
+{
+  "committee_decision": "CONDITIONAL",
+  "default_risk_level": "MEDIUM",
+  "justification_summary": "The AI credit committee identified elevated leverage exposure requiring covenant-based mitigation.",
+  "recommended_loan_terms": {
+    "max_amount": "$35M",
+    "tenor": "3 Years",
+    "covenants": [
+      "Maintain minimum liquidity of $150M",
+      "Quarterly compliance reporting required"
+    ]
+  },
+  "agent_votes": [
+    {
+      "agent_name": "Data Agent",
+      "vote": "APPROVED",
+      "brief_reason": "Strong revenue continuity detected."
+    },
+    {
+      "agent_name": "Risk Agent",
+      "vote": "CONDITIONAL",
+      "brief_reason": "Elevated leverage ratios require safeguards."
+    },
+    {
+      "agent_name": "Compliance Agent",
+      "vote": "MANUAL_REVIEW",
+      "brief_reason": "Additional regulatory verification recommended."
+    }
+  ],
+  "status": "success"
+}
 
 ##  Project Structure
 
-```
 coremine-risk/
 │
 ├──  ai-worker/                    # Python AI Microservice
