@@ -237,6 +237,7 @@ sequenceDiagram
   "status": "success"
 }
 
+---
 ##  Project Structure
 
 coremine-risk/
@@ -292,7 +293,6 @@ coremine-risk/
 └── README.md
 ```
 
----
 
 ##  Quick Start
 
